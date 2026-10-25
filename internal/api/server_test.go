@@ -14,8 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/config"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 	uuidStopped = "00000000-0000-4000-8000-000000000001"
 	uuidNoJava  = "00000000-0000-4000-8000-000000000002"
 	uuidNoPerf  = "00000000-0000-4000-8000-000000000003"
+	uuidPaused  = "00000000-0000-4000-8000-000000000004"
 	uuidMissing = "00000000-0000-4000-8000-0000000000ff"
 	uuidDocker  = "00000000-0000-4000-8000-0000000000ee"
 )
@@ -61,6 +64,8 @@ func testServer(t *testing.T) *Server {
 	stopped.UUID, stopped.State, stopped.Running, stopped.PID = uuidStopped, "exited", false, 0
 	noJava := exContainer()
 	noJava.UUID, noJava.PID = uuidNoJava, 3000
+	paused := exContainer()
+	paused.UUID, paused.State, paused.Running = uuidPaused, "paused", false
 	noPerf := exContainer()
 	noPerf.UUID, noPerf.PID = uuidNoPerf, 4000
 
@@ -70,24 +75,32 @@ func testServer(t *testing.T) *Server {
 	javaNoPerf := exJava()
 	javaNoPerf.User, javaNoPerf.Hsperf = "", ""
 
-	now := time.UnixMilli(exBridgeStart)
+	c := &clock{t: time.UnixMilli(exBridgeStart)}
 	s := &Server{
 		Version:    "0.1.0",
 		Creds:      config.StaticCredentials(testTokenID, testToken),
-		Docker:     fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf},
+		Docker:     fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
 		Proc:       fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
+		Attach:     newFakeAttach(t, c),
+		Features:   exFeatures(),
 		TmpfsBytes: exTmpfs,
 		Limits:     NodeLimits{MaxConcurrentProfiles: 2, MaxProfileSeconds: 120},
 		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Now:        func() time.Time { return now },
+		Now:        c.Now,
 		HostCPUs:   exHostCPUs,
 		SocketExists: func(p string) bool {
 			return strings.HasSuffix(filepath.ToSlash(p), "/.java_pid26")
 		},
 	}
 	s.Init()
-	now = time.UnixMilli(exNow)
+	c.Set(time.UnixMilli(exNow))
 	return s
+}
+
+// fakes returns the fake attacher and clock of a test server.
+func fakes(s *Server) (*fakeAttach, *clock) {
+	f := s.Attach.(*fakeAttach)
+	return f, f.clock
 }
 
 func do(t *testing.T, s *Server, method, path, token string) *httptest.ResponseRecorder {
@@ -146,21 +159,24 @@ func TestGolden(t *testing.T) {
 		{"/api/v1/servers/" + uuidStopped + "/status", "status-not-running", 200},
 		{"/api/v1/servers/" + uuidNoJava + "/status", "status-no-java", 200},
 		{"/api/v1/servers/" + uuidNoPerf + "/status", "status-hsperf-unavailable", 200},
-		{"/api/v1/servers/" + uuidRunning + "/vm", "vm-without-flags", 200},
+		{"/api/v1/servers/" + uuidRunning + "/vm", "vm", 200},
+		{"/api/v1/servers/" + uuidRunning + "/metrics?live=1", "metrics-live", 200},
+		{"/api/v1/servers/" + uuidRunning + "/threads", "threads", 200},
+		{"/api/v1/servers/" + uuidRunning + "/histogram?limit=100", "histogram", 200},
 		{"/api/v1/servers/" + uuidRunning + "/metrics", "metrics", 200},
 		{"/api/v1/servers/" + uuidStopped + "/vm", "error-server-not-running", 409},
 		{"/api/v1/servers/" + uuidNoJava + "/metrics", "error-no-java-process", 409},
 		{"/api/v1/servers/" + uuidNoPerf + "/metrics", "error-hsperf-unavailable", 409},
 		{"/api/v1/servers/" + uuidMissing + "/status", "error-server-not-found", 404},
 		{"/api/v1/servers/" + uuidDocker + "/vm", "error-docker-unavailable", 503},
-		{"/api/v1/servers/" + uuidRunning + "/threads", "error-not-implemented", 501},
-		{"/api/v1/servers/" + uuidRunning + "/histogram", "error-not-implemented", 501},
 		{"/api/v1/servers/" + uuidRunning + "/profiles", "error-not-implemented", 501},
 		{"/api/v1/servers/" + uuidRunning + "/profiles/" + exProfileID, "error-not-implemented", 501},
 		{"/api/v1/nope", "error-not-found", 404},
 		{"/api/v1/servers/" + uuidRunning + "/nope", "error-not-found", 404},
 	}
 	for _, c := range cases {
+		_, clk := fakes(s)
+		clk.Set(time.UnixMilli(exNow))
 		w := do(t, s, http.MethodGet, c.path, testToken)
 		if w.Code != c.status {
 			t.Errorf("%s: status %d, want %d: %s", c.path, w.Code, c.status, w.Body)
@@ -175,18 +191,178 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-func TestMetricsLiveNotImplemented(t *testing.T) {
+func TestMetricsLive(t *testing.T) {
 	s := testServer(t)
-	w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidRunning+"/metrics?live=1", testToken)
+	path := "/api/v1/servers/" + uuidRunning + "/metrics?live=1"
 	var m MetricsResponse
+	w := do(t, s, http.MethodGet, path, testToken)
 	if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil || w.Code != 200 {
 		t.Fatal(w.Code, err)
 	}
+	lh := m.LiveHeap
+	if lh == nil || lh.UsedBytes != (46125+500231)*1024 || *lh.CommittedBytes != (96704+500348)*1024 || lh.MaxBytes != nil ||
+		lh.Metaspace == nil || lh.Metaspace.UsedBytes != 112295*1024 || m.LiveHeapError != nil {
+		t.Errorf("live heap: %+v %v", lh, m.LiveHeapError)
+	}
+	f, _ := fakes(s)
+	if strings.Join(f.cmds, ",") != "GC.heap_info,VM.metaspace" {
+		t.Errorf("commands %v", f.cmds)
+	}
+
+	f.out["GC.heap_info"] = "something new"
+	m = MetricsResponse{}
+	json.Unmarshal(do(t, s, http.MethodGet, path, testToken).Body.Bytes(), &m)
+	if m.LiveHeap != nil || m.LiveHeapError == nil || *m.LiveHeapError != CodeParseFailed {
+		t.Errorf("unparsable: %v %v", m.LiveHeap, m.LiveHeapError)
+	}
+
+	s.Attach = nil
+	m = MetricsResponse{}
+	json.Unmarshal(do(t, s, http.MethodGet, path, testToken).Body.Bytes(), &m)
 	if m.LiveHeap != nil || m.LiveHeapError == nil || *m.LiveHeapError != CodeNotImplemented {
-		t.Errorf("live heap: %v %v", m.LiveHeap, m.LiveHeapError)
+		t.Errorf("without attacher: %v %v", m.LiveHeap, m.LiveHeapError)
 	}
 	if w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidRunning+"/metrics?live=maybe", testToken); w.Code != 400 {
 		t.Errorf("bad live: %d", w.Code)
+	}
+}
+
+// withVMArgs returns a server whose JVM reports the given java.rt.vmArgs.
+func withVMArgs(t *testing.T, s *Server, vmArgs string) {
+	t.Helper()
+	orig := s.ReadHsperf
+	s.ReadHsperf = func(p string) (*hsperf.Data, error) {
+		d, err := orig(p)
+		if err == nil {
+			d.SetString("java.rt.vmArgs", vmArgs)
+		}
+		return d, err
+	}
+}
+
+// TestAttachSafety checks when the listener may be started (SIGQUIT).
+func TestAttachSafety(t *testing.T) {
+	path := "/api/v1/servers/" + uuidRunning + "/threads"
+	begin := int64(1792866595712) // createVmBeginTime of the fixture
+
+	// Listener running: no start, the command runs.
+	s := testServer(t)
+	if w := do(t, s, http.MethodGet, path, testToken); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if f, _ := fakes(s); f.starts != 0 || f.targets[0] != (attach.Target{HostPID: 2817346, NSPID: 26, TmpDir: "/proc/2817346/root/tmp"}) {
+		t.Errorf("starts %d, targets %+v", f.starts, f.targets)
+	}
+
+	// Listener not running, JVM old enough: start once, then the command.
+	s = testServer(t)
+	s.SocketExists = func(string) bool { return false }
+	if w := do(t, s, http.MethodGet, path, testToken); w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if f, _ := fakes(s); f.starts != 1 || len(f.cmds) != 1 {
+		t.Errorf("starts %d, cmds %v", f.starts, f.cmds)
+	}
+
+	// JVM younger than 30 s: no signal.
+	s = testServer(t)
+	s.SocketExists = func(string) bool { return false }
+	f, c := fakes(s)
+	c.Set(time.UnixMilli(begin + 29_000))
+	w := do(t, s, http.MethodGet, path, testToken)
+	var e ErrorBody
+	json.Unmarshal(w.Body.Bytes(), &e)
+	if w.Code != 409 || e.Error != CodeAttachUnavailable || e.Details["reason"] != ReasonJVMStarting || f.starts != 0 || len(f.cmds) != 0 {
+		t.Errorf("young JVM: %d %s, starts %d", w.Code, w.Body, f.starts)
+	}
+
+	// -Xrs and DisableAttachMechanism never get a signal.
+	for reason, vmArgs := range map[string]string{ReasonXrs: "-Xmx1G -Xrs", ReasonDisabled: "-Xmx1G -XX:+DisableAttachMechanism"} {
+		s = testServer(t)
+		s.SocketExists = func(string) bool { return false }
+		withVMArgs(t, s, vmArgs)
+		f, _ := fakes(s)
+		w := do(t, s, http.MethodGet, path, testToken)
+		e = ErrorBody{}
+		json.Unmarshal(w.Body.Bytes(), &e)
+		if w.Code != 409 || e.Details["reason"] != reason || f.starts != 0 || len(f.cmds) != 0 {
+			t.Errorf("%s: %d %s, starts %d", reason, w.Code, w.Body, f.starts)
+		}
+		// With a running listener -Xrs is harmless (no signal needed); disabled stays disabled.
+		s.SocketExists = func(string) bool { return true }
+		w = do(t, s, http.MethodGet, path, testToken)
+		if want := map[string]int{ReasonXrs: 200, ReasonDisabled: 409}[reason]; w.Code != want {
+			t.Errorf("%s with listener: %d, want %d", reason, w.Code, want)
+		}
+	}
+
+	// No hsperfdata: the server is not ready, nothing is attempted.
+	s = testServer(t)
+	f, _ = fakes(s)
+	if w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidNoPerf+"/threads", testToken); w.Code != 409 || f.starts != 0 || len(f.cmds) != 0 {
+		t.Errorf("no hsperfdata: %d", w.Code)
+	}
+}
+
+func TestAttachErrors(t *testing.T) {
+	cases := []struct {
+		err    error
+		status int
+		code   string
+	}{
+		{attach.ErrTimeout, 504, CodeAttachTimeout},
+		{attach.ErrTooLarge, 502, CodeOutputTooLarge},
+		{&attach.CommandError{Code: -1, Message: "java.lang.IllegalArgumentException: x"}, 502, CodeAttachFailed},
+		{attach.ErrProtocol, 502, CodeAttachFailed},
+	}
+	for _, c := range cases {
+		s := testServer(t)
+		f, _ := fakes(s)
+		for _, cmd := range []string{"Thread.print -l", "GC.class_histogram -all", "VM.flags"} {
+			f.errs[cmd] = c.err
+		}
+		for _, p := range []string{"/threads", "/histogram"} {
+			w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidRunning+p, testToken)
+			var e ErrorBody
+			json.Unmarshal(w.Body.Bytes(), &e)
+			if w.Code != c.status || e.Error != c.code {
+				t.Errorf("%v %s: %d %s", c.err, p, w.Code, w.Body)
+			}
+		}
+		var vm VMResponse
+		json.Unmarshal(do(t, s, http.MethodGet, "/api/v1/servers/"+uuidRunning+"/vm", testToken).Body.Bytes(), &vm)
+		if vm.Flags != nil || vm.FlagsError == nil || *vm.FlagsError != c.code {
+			t.Errorf("%v vm: %v %v", c.err, vm.Flags, vm.FlagsError)
+		}
+	}
+	s := testServer(t)
+	f, _ := fakes(s)
+	f.out["GC.class_histogram -all"] = "nothing useful"
+	if w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidRunning+"/histogram", testToken); w.Code != 502 {
+		t.Errorf("unparsable histogram: %d", w.Code)
+	}
+	for _, q := range []string{"0", "100001", "x"} {
+		if w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidRunning+"/histogram?limit="+q, testToken); w.Code != 400 {
+			t.Errorf("limit=%s: %d", q, w.Code)
+		}
+	}
+}
+
+// TestPaused: a paused container counts as not running everywhere.
+func TestPaused(t *testing.T) {
+	s := testServer(t)
+	for _, p := range []string{"/vm", "/metrics", "/metrics?live=1", "/threads", "/histogram"} {
+		w := do(t, s, http.MethodGet, "/api/v1/servers/"+uuidPaused+p, testToken)
+		var e ErrorBody
+		json.Unmarshal(w.Body.Bytes(), &e)
+		if w.Code != 409 || e.Error != CodeServerNotRunning || e.Details["container_state"] != "paused" {
+			t.Errorf("%s: %d %s", p, w.Code, w.Body)
+		}
+	}
+	var st StatusResponse
+	json.Unmarshal(do(t, s, http.MethodGet, "/api/v1/servers/"+uuidPaused+"/status", testToken).Body.Bytes(), &st)
+	if st.State != CodeServerNotRunning || st.Server.Running || st.Server.ContainerState != "paused" || st.Java != nil {
+		t.Errorf("status: %+v", st)
 	}
 }
 

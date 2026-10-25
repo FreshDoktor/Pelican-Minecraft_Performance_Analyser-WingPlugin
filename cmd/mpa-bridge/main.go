@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/api"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/config"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
 )
@@ -54,6 +55,7 @@ func run(cfgPath string, log *slog.Logger) error {
 		Allowed:    cfg.Allowed,
 		Docker:     container.NewDocker(cfg.DockerSocket),
 		Proc:       container.Proc{Root: cfg.ProcRoot},
+		Attach:     attach.New(api.MaxAttachOutput),
 		TmpfsBytes: cfg.TmpfsSizeBytes,
 		TLS:        cfg.API.SSL.Enabled,
 		Limits:     api.NodeLimits{MaxConcurrentProfiles: cfg.MaxConcurrentProfiles, MaxProfileSeconds: cfg.MaxProfileSeconds},
@@ -66,7 +68,7 @@ func run(cfgPath string, log *slog.Logger) error {
 		Handler:           srv,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      120 * time.Second,
+		WriteTimeout:      150 * time.Second, // histogram: up to 90 s heap walk
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),

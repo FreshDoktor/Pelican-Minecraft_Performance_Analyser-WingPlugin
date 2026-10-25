@@ -206,7 +206,7 @@ func BuildVM(d *hsperf.Data, info container.Info, listener bool, hostCPUs int, t
 		Metaspace:    memoryArea(d, "sun.gc.metaspace."),
 		Attach:       buildAttach(d, listener, uptime),
 		Container:    containerLimits(info, hostCPUs, tmpfsBytes),
-		FlagsError:   ptr(CodeNotImplemented),
+		FlagsError:   ptr(CodeNotImplemented), // replaced by the handler once VM.flags ran
 	}
 	if args.GC != nil {
 		r.GC.SelectedBy = "flag"
@@ -228,6 +228,7 @@ func BuildMetrics(d *hsperf.Data, nowMs int64) MetricsResponse {
 
 	r := MetricsResponse{
 		SampledAt:   nowMs,
+		StartedAt:   started,
 		UptimeMs:    uptime,
 		Heap:        HeapTotals{UsedBytes: used, CommittedBytes: committed, MaxBytes: maxBytes, Source: SourceAfterGC},
 		Generations: []Generation{},
@@ -429,4 +430,23 @@ func serverInfo(info container.Info) ServerInfo {
 		si.StartedAt = ptr(info.StartedAt.UnixMilli())
 	}
 	return si
+}
+
+// BuildLiveHeap parses GC.heap_info.
+func BuildLiveHeap(raw string, nowMs int64) (*LiveHeap, bool) {
+	h, ok := parse.ParseHeapInfo(raw)
+	if !ok {
+		return nil, false
+	}
+	lh := &LiveHeap{SampledAt: nowMs, Source: SourceLive, UsedBytes: h.Used, CommittedBytes: h.Committed, MaxBytes: h.Max, Raw: raw}
+	lh.Metaspace = liveMetaspace(raw)
+	return lh, true
+}
+
+func liveMetaspace(text string) *LiveMetaspace {
+	m, ok := parse.ParseMetaspace(text)
+	if !ok {
+		return nil
+	}
+	return &LiveMetaspace{UsedBytes: m.Used, CommittedBytes: m.Committed, ReservedBytes: m.Reserved, Source: SourceLive}
 }

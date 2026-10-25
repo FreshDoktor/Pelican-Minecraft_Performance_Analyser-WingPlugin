@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -60,57 +61,62 @@ func exFeatures() []string {
 	return []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles}
 }
 
-// examples builds every example document.
+// Feature lists of the milestones, for node-status-m1/-m2.
+var (
+	featuresM1 = []string{FeatureStatus, FeatureVM, FeatureMetrics}
+	featuresM2 = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap}
+)
+
+// get runs a request against the real handlers and returns the body. Bodies
+// of other test containers are rewritten to exUUID.
+func get(t *testing.T, s *Server, path string, status int) json.RawMessage {
+	t.Helper()
+	if f, ok := s.Attach.(*fakeAttach); ok && f.clock.Now().UnixMilli() > exNow {
+		f.clock.Set(time.UnixMilli(exNow))
+	}
+	w := do(t, s, http.MethodGet, path, testToken)
+	if w.Code != status {
+		t.Fatalf("%s: status %d, want %d: %s", path, w.Code, status, w.Body)
+	}
+	b := w.Body.Bytes()
+	for _, u := range []string{uuidStopped, uuidNoJava, uuidNoPerf, uuidPaused} {
+		b = bytes.ReplaceAll(b, []byte(u), []byte(exUUID))
+	}
+	return json.RawMessage(bytes.TrimSpace(b))
+}
+
+// examples builds every example document. Everything the bridge serves comes
+// from the HTTP handlers with fake Docker, /proc and attach (fixture outputs);
+// the profile examples (milestone 3) are built from the types directly.
 func examples(t *testing.T) map[string]any {
-	d := loadFixture(t)
 	ex := map[string]any{}
-
-	ex["node-status"] = NodeStatusResponse{
-		BridgeVersion: "0.1.0", APIVersion: APIVersion, Features: exFeatures(),
-		StartedAt: exBridgeStart, UptimeMs: exNow - exBridgeStart, SampledAt: exNow, TLS: false,
-		Limits: NodeLimits{MaxConcurrentProfiles: 2, MaxProfileSeconds: 120},
+	srv := func(features []string) *Server {
+		s := testServer(t)
+		s.Features = features
+		return s
 	}
+	s := srv(exFeatures())
+	base := "/api/v1/servers/"
 
-	bridge := BridgeInfo{Version: "0.1.0", APIVersion: APIVersion, Features: exFeatures()}
-	java := buildJavaProcess(exJava(), d, exNow)
-	attach := buildAttach(d, true, java.UptimeMs)
-	ex["status"] = StatusResponse{State: StateReady, Bridge: bridge, Server: serverInfo(exContainer()), Java: java, Attach: &attach, SampledAt: exNow}
+	ex["node-status"] = get(t, s, "/api/v1/status", 200)
+	ex["node-status-m1"] = get(t, srv(featuresM1), "/api/v1/status", 200)
+	ex["node-status-m2"] = get(t, srv(featuresM2), "/api/v1/status", 200)
+	ex["status"] = get(t, s, base+exUUID+"/status", 200)
+	ex["status-not-running"] = get(t, s, base+uuidStopped+"/status", 200)
+	ex["status-no-java"] = get(t, s, base+uuidNoJava+"/status", 200)
+	ex["status-hsperf-unavailable"] = get(t, s, base+uuidNoPerf+"/status", 200)
+	ex["vm"] = get(t, s, base+exUUID+"/vm", 200)
+	ex["metrics"] = get(t, s, base+exUUID+"/metrics", 200)
+	ex["metrics-live"] = get(t, s, base+exUUID+"/metrics?live=1", 200)
+	ex["threads"] = get(t, s, base+exUUID+"/threads", 200)
+	ex["histogram"] = get(t, s, base+exUUID+"/histogram?limit=100", 200)
 
-	stopped := exContainer()
-	stopped.State, stopped.Running, stopped.PID = "exited", false, 0
-	ex["status-not-running"] = StatusResponse{State: CodeServerNotRunning, Bridge: bridge, Server: serverInfo(stopped), SampledAt: exNow}
-	ex["status-no-java"] = StatusResponse{State: CodeNoJavaProcess, Bridge: bridge, Server: serverInfo(exContainer()), SampledAt: exNow}
-	nohs := exJava()
-	nohs.User, nohs.Hsperf = "", ""
-	jn := buildJavaProcess(nohs, nil, exNow)
-	an := buildAttach(nil, false, nil)
-	ex["status-hsperf-unavailable"] = StatusResponse{State: CodeHsperfUnavailable, Bridge: bridge, Server: serverInfo(exContainer()), Java: jn, Attach: &an, SampledAt: exNow}
-
-	vm := BuildVM(d, exContainer(), true, exHostCPUs, exTmpfs, exNow)
-	ex["vm-without-flags"] = vm
-	vm.Flags = exFlags()
-	vm.FlagsError = nil
-	ex["vm"] = vm
-
-	m := BuildMetrics(d, exNow)
-	ex["metrics"] = m
-	m.LiveHeap = exLiveHeap()
-	ex["metrics-live"] = m
-
-	raw, err := os.ReadFile("../../testdata/mpa-threads.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// jcmd prints "<pid>:" first; the attach protocol does not.
-	text := strings.ReplaceAll(string(raw), "\r\n", "\n")
-	text = strings.TrimPrefix(text, "26:\n")
-	ex["threads"] = BuildThreads(parse.ParseThreadDump(text), text, 1792930183412, 18.204)
-
-	hist, err := os.ReadFile("../../testdata/mpa-histogram-top300.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ex["histogram"] = BuildHistogram(parse.ParseHistogram(string(hist)), 100, 1792930190871, 187.316)
+	// A JVM started 12 s ago without a running listener: no SIGQUIT yet.
+	young := testServer(t)
+	young.SocketExists = func(string) bool { return false }
+	_, c := fakes(young)
+	c.Set(time.UnixMilli(1792866595712 + 12_000))
+	ex["vm-without-flags"] = get(t, young, base+exUUID+"/vm", 200)
 
 	for k, v := range profileExamples(t) {
 		ex[k] = v
@@ -128,40 +134,6 @@ var exErrorDetails = map[string]map[string]any{
 	CodeProfileRunning:       {"profile_id": exProfileID},
 	CodeTooManyProfiles:      {"limit": 2},
 	CodeInsufficientTmpSpace: {"free_bytes": 1048576, "required_bytes": 8388608},
-}
-
-// exFlags is an illustrative VM.flags result for the fixture JVM (milestone 2).
-func exFlags() map[string]string {
-	return map[string]string{
-		"CICompilerCount":         "2",
-		"InitialHeapSize":         "134217728",
-		"MaxHeapSize":             "1999634432",
-		"MaxNewSize":              "666894336",
-		"MinHeapDeltaBytes":       "196608",
-		"MinHeapSize":             "134217728",
-		"NewSize":                 "44695552",
-		"NonNMethodCodeHeapSize":  "5832780",
-		"NonProfiledCodeHeapSize": "122912730",
-		"OldSize":                 "89522176",
-		"ProfiledCodeHeapSize":    "122912730",
-		"ReservedCodeCacheSize":   "251658240",
-		"SegmentedCodeCache":      "true",
-		"SoftMaxHeapSize":         "1999634432",
-		"UseCompressedOops":       "true",
-		"UseSerialGC":             "true",
-	}
-}
-
-// exLiveHeap is an illustrative GC.heap_info result (milestone 2).
-func exLiveHeap() *LiveHeap {
-	raw := "DefNew     total 96704K, used 46125K [0x0000000088c00000, 0x000000008f2f0000, 0x00000000b0a00000)\n" +
-		" eden space 86016K,  41% used [0x0000000088c00000, 0x000000008b4d4f10, 0x000000008e000000)\n" +
-		" from space 10688K,  46% used [0x000000008e000000, 0x000000008e4ce070, 0x000000008ea70000)\n" +
-		" to   space 10688K,   0% used [0x000000008ea70000, 0x000000008ea70000, 0x000000008f4e0000)\n" +
-		"Tenured    total 500348K, used 500231K [0x00000000b0a00000, 0x00000000cf2df000, 0x0000000100000000)\n" +
-		" the  space 500348K,  99% used [0x00000000b0a00000, 0x00000000cf2c1bd0, 0x00000000cf2df000)\n"
-	return &LiveHeap{SampledAt: exNow, Source: SourceLive, UsedBytes: (46125 + 500231) * 1024,
-		CommittedBytes: ptr(int64(96704+500348) * 1024), MaxBytes: nil, Raw: raw}
 }
 
 func profileExamples(t *testing.T) map[string]any {

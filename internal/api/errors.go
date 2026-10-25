@@ -17,6 +17,7 @@ const (
 	CodeAttachFailed         = "attach_failed"
 	CodeAttachTimeout        = "attach_timeout"
 	CodeOutputTooLarge       = "output_too_large"
+	CodeParseFailed          = "parse_failed"
 	CodeProfileRunning       = "profile_running"
 	CodeTooManyProfiles      = "too_many_profiles"
 	CodeProfileNotFound      = "profile_not_found"
@@ -48,6 +49,7 @@ var Errors = []ErrorDef{
 	{CodeAttachFailed, http.StatusBadGateway, "The JVM rejected or failed the command."},
 	{CodeAttachTimeout, http.StatusGatewayTimeout, "The JVM did not answer in time."},
 	{CodeOutputTooLarge, http.StatusBadGateway, "The JVM output exceeds the size limit."},
+	{CodeParseFailed, http.StatusBadGateway, "The JVM output could not be parsed."},
 	{CodeProfileRunning, http.StatusConflict, "A profile is already running for this server."},
 	{CodeTooManyProfiles, http.StatusTooManyRequests, "Too many profiles are running on this node."},
 	{CodeProfileNotFound, http.StatusNotFound, "No such profile (unknown, deleted or expired)."},

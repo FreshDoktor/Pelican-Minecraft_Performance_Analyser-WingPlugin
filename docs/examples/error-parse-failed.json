@@ -1,0 +1,5 @@
+{
+  "error": "parse_failed",
+  "message": "The JVM output could not be parsed.",
+  "details": null
+}

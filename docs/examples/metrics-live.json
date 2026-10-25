@@ -1,5 +1,6 @@
 {
   "sampled_at": 1792929810000,
+  "started_at": 1792866595712,
   "uptime_ms": 63214288,
   "heap": {
     "used_bytes": 517275200,
@@ -135,6 +136,12 @@
     "used_bytes": 559468544,
     "committed_bytes": 611381248,
     "max_bytes": null,
+    "metaspace": {
+      "used_bytes": 114990080,
+      "committed_bytes": 116064256,
+      "reserved_bytes": 1207959552,
+      "source": "live"
+    },
     "raw": "DefNew     total 96704K, used 46125K [0x0000000088c00000, 0x000000008f2f0000, 0x00000000b0a00000)\n eden space 86016K,  41% used [0x0000000088c00000, 0x000000008b4d4f10, 0x000000008e000000)\n from space 10688K,  46% used [0x000000008e000000, 0x000000008e4ce070, 0x000000008ea70000)\n to   space 10688K,   0% used [0x000000008ea70000, 0x000000008ea70000, 0x000000008f4e0000)\nTenured    total 500348K, used 500231K [0x00000000b0a00000, 0x00000000cf2df000, 0x0000000100000000)\n the  space 500348K,  99% used [0x00000000b0a00000, 0x00000000cf2c1bd0, 0x00000000cf2df000)\n"
   },
   "live_heap_error": null

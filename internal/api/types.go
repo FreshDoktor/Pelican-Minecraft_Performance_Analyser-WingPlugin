@@ -178,6 +178,7 @@ type ContainerLimits struct {
 // MetricsResponse is GET /metrics.
 type MetricsResponse struct {
 	SampledAt     int64        `json:"sampled_at"`
+	StartedAt     *int64       `json:"started_at"`
 	UptimeMs      *int64       `json:"uptime_ms"`
 	Heap          HeapTotals   `json:"heap"`
 	Generations   []Generation `json:"generations"`
@@ -286,12 +287,21 @@ type JIT struct {
 
 // LiveHeap is the current heap from GC.heap_info (milestone 2, ?live=1).
 type LiveHeap struct {
-	SampledAt      int64  `json:"sampled_at"`
-	Source         string `json:"source"`
+	SampledAt      int64          `json:"sampled_at"`
+	Source         string         `json:"source"`
+	UsedBytes      int64          `json:"used_bytes"`
+	CommittedBytes *int64         `json:"committed_bytes"`
+	MaxBytes       *int64         `json:"max_bytes"`
+	Metaspace      *LiveMetaspace `json:"metaspace"`
+	Raw            string         `json:"raw"`
+}
+
+// LiveMetaspace is the current metaspace (VM.metaspace, or GC.heap_info on older JDKs).
+type LiveMetaspace struct {
 	UsedBytes      int64  `json:"used_bytes"`
-	CommittedBytes *int64 `json:"committed_bytes"`
-	MaxBytes       *int64 `json:"max_bytes"`
-	Raw            string `json:"raw"`
+	CommittedBytes int64  `json:"committed_bytes"`
+	ReservedBytes  int64  `json:"reserved_bytes"`
+	Source         string `json:"source"`
 }
 
 // ThreadsResponse is GET /threads.

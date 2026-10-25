@@ -95,8 +95,10 @@ The panel calls the bridge server-side only. The bridge sends no CORS headers.
 
 ### `GET /api/v1/status`
 
-Node level, for the bridge test button and detection. Same authentication. Example:
-[`node-status.json`](examples/node-status.json).
+Node level, for the bridge test button and detection. Same authentication. Examples:
+[`node-status.json`](examples/node-status.json) (all features),
+[`node-status-m1.json`](examples/node-status-m1.json) and [`node-status-m2.json`](examples/node-status-m2.json)
+(what a milestone-1 / milestone-2 bridge reports).
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -155,14 +157,36 @@ Used in `/status` and `/vm`. Tells whether milestone-2/3 features (thread dump, 
 | `available` | bool | the bridge would attach: `supported`, and either the listener runs or it may be started safely |
 | `reason` | enum, nullable | why not available, `null` if available: `disabled` (`-XX:+DisableAttachMechanism`) · `xrs` (`-Xrs`: the start signal `SIGQUIT` would **kill** the server, and the listener does not run yet) · `jvm_starting` (JVM younger than 30 s, listener not running; temporary) · `unknown` (no hsperfdata, cannot be checked safely) |
 
+#### Attach commands
+
+Endpoints that need the JVM (`/threads`, `/histogram`, `flags` in `/vm`, `/metrics?live=1`) attach
+through the socket `/tmp/.java_pid<container_pid>` of the container, from the host; nothing is started
+inside the container. If the listener does not run yet and `available` is `true`, the bridge starts it
+on the first such request: it creates `/tmp/.attach_pid<container_pid>`, sends `SIGQUIT` to the JVM,
+waits up to 5 s for the socket and removes the trigger file. With `available: false` no signal is
+ever sent and the endpoint answers `attach_unavailable` (`details.reason` as above).
+
+| Command | Used by | Timeout (incl. listener start) |
+| --- | --- | --- |
+| `Thread.print -l` | `/threads` | 15 s |
+| `GC.class_histogram -all` | `/histogram` | 90 s |
+| `VM.flags` | `/vm` | 5 s |
+| `GC.heap_info`, `VM.metaspace` | `/metrics?live=1` | 5 s each |
+
+The output of one command is limited to 32 MiB (`output_too_large`). Commands to the same JVM run
+one after another.
+
 ### `GET /vm`
 
 JVM profile from hsperfdata plus Docker limits. No attach in milestone 1; with feature `vm_flags`
 the bridge additionally runs `VM.flags` via attach (fails soft: `flags` is `null`, `flags_error` set).
 
 Examples: [`vm.json`](examples/vm.json) (with `flags`, milestone 2),
-[`vm-without-flags.json`](examples/vm-without-flags.json) (milestone 1).
+[`vm-without-flags.json`](examples/vm-without-flags.json) (JVM 12 s old, listener not running:
+`flags_error: attach_unavailable`; a milestone-1 bridge sends `not_implemented` instead).
 Errors: `server_not_found`, `server_not_running`, `no_java_process`, `hsperf_unavailable`, `docker_unavailable`.
+A container in state `paused` (or any state other than `running`) always gets `409 server_not_running`
+with `details.container_state`, on `/vm`, `/metrics`, `/threads`, `/histogram` and `/profiles`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -188,7 +212,7 @@ Errors: `server_not_found`, `server_not_running`, `no_java_process`, `hsperf_una
 | `memory_settings.xrs` | bool | `-Xrs` / `-XX:+ReduceSignalUsage` set |
 | `memory_settings.disable_attach` | bool | `-XX:+DisableAttachMechanism` set |
 | `gc.type` | enum | `serial` · `parallel` · `g1` · `zgc` · `shenandoah` · `unknown`, derived from the collector names (fallback `sun.gc.policy.name`) |
-| `gc.selected_by` | enum | `flag` (explicit) · `ergonomics` (the JVM chose it: Serial when it sees < 2 CPUs or < 1792 MB) |
+| `gc.selected_by` | enum | `flag` (explicit) · `ergonomics` (the JVM chose it: Serial when it sees < 2 CPUs or < 1792 MiB of memory) |
 | `gc.policy` | string, nullable | `sun.gc.policy.name`, e.g. `Copy:MSC`; missing with ZGC/Shenandoah |
 | `gc.collectors[]` | array | see [Collector](#collector-object) (without counters) |
 | `heap_max_bytes` | integer | maximum heap, same as `heap.max_bytes` in `/metrics` |
@@ -204,19 +228,23 @@ Errors: `server_not_found`, `server_not_running`, `no_java_process`, `hsperf_una
 | `container.effective_cpus` | number | `min(cpu_limit, cpuset_count, host_cpus)`; what the JVM sees as available processors (rounded up) |
 | `container.tmpfs_size_bytes` | integer | size of the container's `/tmp` (Wings `docker.tmpfs_size`, default 100 MB) |
 | `flags` | map string → string, nullable | `VM.flags` (milestone 2): flag name → value as printed, booleans as `"true"`/`"false"`, e.g. `"MaxHeapSize": "1999634432"`, `"UseSerialGC": "true"` |
-| `flags_error` | error code, nullable | why `flags` is `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout`; `null` when `flags` is set |
+| `flags_error` | error code, nullable | why `flags` is `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` · `output_too_large`; `null` when `flags` is set |
 
 ### `GET /metrics`
 
 Counters from hsperfdata; reading them costs the JVM nothing. Poll every 2–5 s. Counters are
 **cumulative since JVM start**; rates (e.g. GC time per minute) are the difference of two samples
-divided by the difference of `sampled_at` (or `uptime_ms`). If `uptime_ms` went down, the JVM restarted.
+divided by the difference of `sampled_at` (or `uptime_ms`). A changed `started_at` means the JVM restarted
+(all counters start again at 0).
 
 Examples: [`metrics.json`](examples/metrics.json), [`metrics-live.json`](examples/metrics-live.json) (`?live=1`, milestone 2).
 Errors: as `/vm`.
 
 Query parameter `live=1` (milestone 2, feature `live_heap`): additionally runs `GC.heap_info` via
-attach (a short safepoint) and fills `live_heap`. Without it, `live_heap` and `live_heap_error` are `null`.
+attach (a short safepoint) and fills `live_heap`; on JDKs whose `GC.heap_info` does not print the
+metaspace (JDK 25) also `VM.metaspace` for `live_heap.metaspace`. Without `live=1`, `live_heap` and
+`live_heap_error` are `null`. hsperfdata reports metaspace 0 until the first GC; right after a start
+use `live_heap.metaspace` (e.g. for "Xmx + metaspace + overhead > limit").
 
 **Used values are "after GC".** hsperfdata updates `used` only when a collection runs, so all values
 with `source: "after_gc"` are the state after the last GC (eden often shows 0). For the old generation
@@ -228,6 +256,7 @@ generation only when needed (fixture: old gen 99.98 % of the committed 512356352
 | Field | Type | Description |
 | --- | --- | --- |
 | `sampled_at` | Unix ms | |
+| `started_at` | Unix ms, nullable | JVM start (`sun.rt.createVmBeginTime`), same as `java.started_at` in `/status`; changes on every JVM restart |
 | `uptime_ms` | integer, nullable | JVM uptime |
 | `heap.used_bytes` | integer | sum of all spaces |
 | `heap.committed_bytes` | integer | sum of the generation capacities |
@@ -262,8 +291,9 @@ generation only when needed (fixture: old gen 99.98 % of the committed 512356352
 | `live_heap.used_bytes` | integer | current heap usage from `GC.heap_info` |
 | `live_heap.committed_bytes` | integer, nullable | |
 | `live_heap.max_bytes` | integer, nullable | only where `GC.heap_info` prints it (G1 reserved, ZGC, Shenandoah) |
+| `live_heap.metaspace` | object, nullable | current metaspace: `used_bytes`, `committed_bytes`, `reserved_bytes` (address space, **not** a limit; the limit is `MaxMetaspaceSize`), `source` (`live`); `null` if neither `GC.heap_info` nor `VM.metaspace` delivered it |
 | `live_heap.raw` | string | the text of `GC.heap_info` |
-| `live_heap_error` | error code, nullable | with `?live=1` and `live_heap` `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` |
+| `live_heap_error` | error code, nullable | with `?live=1` and `live_heap` `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` · `output_too_large` · `parse_failed` (unknown `GC.heap_info` format) |
 
 #### Collector object
 
@@ -285,6 +315,7 @@ Milestone 2. `Thread.print -l` via attach, parsed. Causes a short safepoint.
 
 Example: [`threads.json`](examples/threads.json) (from `testdata/mpa-threads.txt`).
 Errors: as `/vm` plus `attach_unavailable`, `attach_failed`, `attach_timeout`, `output_too_large`, `not_implemented`.
+`sampled_at` is the start of the command, `duration_ms` its runtime (both endpoints).
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -473,9 +504,10 @@ Every error has this body (example: [`error-server-not-running.json`](examples/e
 | 409 | `no_java_process` | container runs, but no `java` process | – |
 | 409 | `hsperf_unavailable` | Java runs but has no readable hsperfdata (`-XX:-UsePerfData`, `-XX:+PerfDisableSharedMem`, JVM still starting) | – |
 | 409 | `attach_unavailable` | attach not possible, see [Attach](#attach-object) | `reason` |
-| 502 | `attach_failed` | attach protocol error or the command failed | – |
+| 502 | `attach_failed` | attach protocol error or the command failed | `code` (result code of the JVM, e.g. `-1`) and `output` (first 300 bytes) if the JVM answered, else `null` |
 | 504 | `attach_timeout` | the JVM did not answer in time | – |
-| 502 | `output_too_large` | the JVM output exceeds the size limit | – |
+| 502 | `output_too_large` | the JVM output exceeds the size limit (32 MiB) | – |
+| 502 | `parse_failed` | the JVM answered, but the output has an unknown format (`/histogram`; in `/metrics` only as `live_heap_error`) | – |
 | 409 | `profile_running` | a profile is already running for this server | `profile_id` |
 | 429 | `too_many_profiles` | `max_concurrent_profiles` reached on this node | `limit` |
 | 404 | `profile_not_found` | unknown, deleted or expired profile id | – |
@@ -492,19 +524,25 @@ example `examples/error-<code>.json` (underscores replaced by dashes).
 Fixed inputs (not from the fixtures): server UUID `1a7ce997-259b-452e-8b4e-cecc464142ca`, host PIDs,
 all timestamps, the bridge start, the container limits (Wings: server memory 1907 MB × overhead
 1.15 = 2299579597 bytes ≈ 2.142 GiB, CPU limit 100 % = 1 CPU), host CPUs 24.
-Illustrative (format final, values plausible but not recorded): `flags` in `vm.json`,
-`live_heap` in `metrics-live.json`, the stacks and GC/CPU numbers of the profile examples.
+All examples except the profiles are recorded from the real HTTP handlers, with Docker, `/proc`
+and the attach socket faked: the attach answers are the fixture outputs (`Thread.print -l`,
+`GC.class_histogram -all`), command durations are fixed.
+Illustrative (format final, values plausible but not recorded): the `VM.flags`, `GC.heap_info` and
+`VM.metaspace` outputs behind `vm.json` and `metrics-live.json`, the stacks and GC/CPU numbers of the
+profile examples.
 Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms128M -Xmx1907M`).
 
 | File | Endpoint / state |
 | --- | --- |
-| `node-status.json` | `GET /api/v1/status` |
+| `node-status.json` | `GET /api/v1/status` (all features) |
+| `node-status-m1.json` | `GET /api/v1/status` of a milestone-1 bridge |
+| `node-status-m2.json` | `GET /api/v1/status` of a milestone-2 bridge |
 | `status.json` | `GET /status`, ready |
 | `status-not-running.json` | `GET /status`, container stopped |
 | `status-no-java.json` | `GET /status`, no Java process |
 | `status-hsperf-unavailable.json` | `GET /status`, Java without hsperfdata |
 | `vm.json` | `GET /vm` with `VM.flags` (milestone 2) |
-| `vm-without-flags.json` | `GET /vm` in milestone 1 (`flags_error: not_implemented`) |
+| `vm-without-flags.json` | `GET /vm`, JVM 12 s old, listener not running (`flags_error: attach_unavailable`) |
 | `metrics.json` | `GET /metrics` |
 | `metrics-live.json` | `GET /metrics?live=1` (milestone 2) |
 | `threads.json` | `GET /threads` |

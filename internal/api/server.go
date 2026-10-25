@@ -18,12 +18,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/parse"
 )
 
 // Implemented lists the features of this build.
-var Implemented = []string{FeatureStatus, FeatureVM, FeatureMetrics}
+var Implemented = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap}
+
+// Attacher runs diagnostic commands in a JVM (attach.Client in production).
+type Attacher interface {
+	Start(ctx context.Context, t attach.Target) error
+	Jcmd(ctx context.Context, t attach.Target, command string) (string, error)
+}
+
+// MaxAttachOutput limits the output of one attach command (32 MiB).
+const MaxAttachOutput = 32 << 20
+
+// Timeouts of the attach commands, including starting the listener.
+var (
+	TimeoutThreads   = 15 * time.Second
+	TimeoutHistogram = 90 * time.Second
+	TimeoutQuick     = 5 * time.Second // VM.flags, GC.heap_info
+)
 
 // Credentials yields the current Wings token.
 type Credentials interface {
@@ -42,6 +60,8 @@ type Server struct {
 	Allowed    []netip.Prefix
 	Docker     container.Inspector
 	Proc       ProcessFinder
+	Attach     Attacher
+	Features   []string // defaults to Implemented
 	TmpfsBytes int64
 	TLS        bool
 	Limits     NodeLimits
@@ -69,6 +89,9 @@ func (s *Server) Init() {
 	}
 	if s.SocketExists == nil {
 		s.SocketExists = socketExists
+	}
+	if s.Features == nil {
+		s.Features = Implemented
 	}
 	if s.Log == nil {
 		s.Log = slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -155,8 +178,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		methods, h = []string{http.MethodGet}, s.vm
 	case len(rest) == 1 && rest[0] == "metrics":
 		methods, h = []string{http.MethodGet}, s.metrics
-	case len(rest) == 1 && (rest[0] == "threads" || rest[0] == "histogram"):
-		methods, h = []string{http.MethodGet}, s.notImplemented
+	case len(rest) == 1 && rest[0] == "threads":
+		methods, h = []string{http.MethodGet}, s.threads
+	case len(rest) == 1 && rest[0] == "histogram":
+		methods, h = []string{http.MethodGet}, s.histogram
 	case len(rest) == 1 && rest[0] == "profiles":
 		methods, h = []string{http.MethodGet, http.MethodPost}, s.notImplemented
 	case len(rest) == 2 && rest[0] == "profiles":
@@ -198,7 +223,7 @@ func (s *Server) nowMs() int64 { return s.Now().UnixMilli() }
 func (s *Server) nodeStatus(w http.ResponseWriter, r *http.Request) {
 	now := s.Now()
 	s.write(w, http.StatusOK, NodeStatusResponse{
-		BridgeVersion: s.Version, APIVersion: APIVersion, Features: Implemented,
+		BridgeVersion: s.Version, APIVersion: APIVersion, Features: s.Features,
 		StartedAt: s.started.UnixMilli(), UptimeMs: now.Sub(s.started).Milliseconds(), SampledAt: now.UnixMilli(),
 		TLS: s.TLS, Limits: s.Limits,
 	})
@@ -281,7 +306,7 @@ func (s *Server) serverStatus(w http.ResponseWriter, r *http.Request, uuid strin
 	now := s.nowMs()
 	resp := StatusResponse{
 		State:     t.state(),
-		Bridge:    BridgeInfo{Version: s.Version, APIVersion: APIVersion, Features: Implemented},
+		Bridge:    BridgeInfo{Version: s.Version, APIVersion: APIVersion, Features: s.Features},
 		Server:    serverInfo(t.info),
 		SampledAt: now,
 	}
@@ -299,7 +324,15 @@ func (s *Server) vm(w http.ResponseWriter, r *http.Request, uuid string) {
 		s.fail(w, r, e)
 		return
 	}
-	s.write(w, http.StatusOK, BuildVM(t.perf, t.info, s.SocketExists(t.java.AttachSocket()), s.HostCPUs, s.TmpfsBytes, s.nowMs()))
+	resp := BuildVM(t.perf, t.info, s.SocketExists(t.java.AttachSocket()), s.HostCPUs, s.TmpfsBytes, s.nowMs())
+	if out, _, e := s.jcmd(r.Context(), t, "VM.flags", TimeoutQuick); e != nil {
+		resp.FlagsError = &e.body.Error
+	} else {
+		resp.Flags, resp.FlagsError = parse.ParseVMFlags(out), nil
+	}
+	// The listener may have been started just now.
+	resp.Attach = buildAttach(t.perf, s.SocketExists(t.java.AttachSocket()), resp.Launch.UptimeMs)
+	s.write(w, http.StatusOK, resp)
 }
 
 func (s *Server) metrics(w http.ResponseWriter, r *http.Request, uuid string) {
@@ -319,9 +352,122 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request, uuid string) {
 	}
 	m := BuildMetrics(t.perf, s.nowMs())
 	if live {
-		m.LiveHeapError = ptr(CodeNotImplemented)
+		start := s.nowMs()
+		out, _, e := s.jcmd(r.Context(), t, "GC.heap_info", TimeoutQuick)
+		if e != nil {
+			m.LiveHeapError = &e.body.Error
+		} else if lh, ok := BuildLiveHeap(out, start); ok {
+			// JDK 25 no longer prints metaspace in GC.heap_info.
+			if lh.Metaspace == nil {
+				if ms, _, e := s.jcmd(r.Context(), t, "VM.metaspace", TimeoutQuick); e == nil {
+					lh.Metaspace = liveMetaspace(ms)
+				}
+			}
+			m.LiveHeap = lh
+		} else {
+			s.Log.Info("unparsable GC.heap_info", "uuid", uuid, "output", truncate(out, 300))
+			m.LiveHeapError = ptr(CodeParseFailed)
+		}
 	}
 	s.write(w, http.StatusOK, m)
+}
+
+func (s *Server) threads(w http.ResponseWriter, r *http.Request, uuid string) {
+	t, e := s.ready(r.Context(), uuid)
+	if e != nil {
+		s.fail(w, r, e)
+		return
+	}
+	start := s.nowMs()
+	out, dur, e := s.jcmd(r.Context(), t, "Thread.print -l", TimeoutThreads)
+	if e != nil {
+		s.fail(w, r, e)
+		return
+	}
+	s.write(w, http.StatusOK, BuildThreads(parse.ParseThreadDump(out), out, start, dur))
+}
+
+func (s *Server) histogram(w http.ResponseWriter, r *http.Request, uuid string) {
+	limit := DefaultHistogramLimit
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > MaxHistogramLimit {
+			s.fail(w, r, newError(CodeInvalidRequest, "Invalid parameter limit.", map[string]any{"field": "limit", "reason": "must be between 1 and 100000"}))
+			return
+		}
+		limit = n
+	}
+	t, e := s.ready(r.Context(), uuid)
+	if e != nil {
+		s.fail(w, r, e)
+		return
+	}
+	start := s.nowMs()
+	out, dur, e := s.jcmd(r.Context(), t, "GC.class_histogram -all", TimeoutHistogram)
+	if e != nil {
+		s.fail(w, r, e)
+		return
+	}
+	h := parse.ParseHistogram(out)
+	if len(h.Classes) == 0 {
+		s.Log.Info("unparsable class histogram", "uuid", uuid, "output", truncate(out, 300))
+		s.fail(w, r, newError(CodeParseFailed, "", nil))
+		return
+	}
+	s.write(w, http.StatusOK, BuildHistogram(h, limit, start, dur))
+}
+
+// jcmd runs a diagnostic command under the safety rules of the attach object:
+// the listener is only started (trigger file, then SIGQUIT) if attach.available,
+// i.e. never with -Xrs, -XX:+DisableAttachMechanism, without hsperfdata or for
+// a JVM younger than 30 s.
+func (s *Server) jcmd(ctx context.Context, t *target, command string, timeout time.Duration) (string, float64, *apiError) {
+	if s.Attach == nil {
+		return "", 0, newError(CodeNotImplemented, "", nil)
+	}
+	_, uptime := jvmTimes(t.perf, s.nowMs())
+	listener := s.SocketExists(t.java.AttachSocket())
+	a := buildAttach(t.perf, listener, uptime)
+	if !a.Available {
+		return "", 0, newError(CodeAttachUnavailable, "", map[string]any{"reason": *a.Reason})
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, TmpDir: t.java.TmpDir}
+	if !listener {
+		s.Log.Info("starting attach listener", "pid", target.HostPID, "ns_pid", target.NSPID)
+		if err := s.Attach.Start(ctx, target); err != nil {
+			return "", 0, s.attachError(command, err)
+		}
+	}
+	start := s.Now()
+	out, err := s.Attach.Jcmd(ctx, target, command)
+	dur := float64(s.Now().Sub(start).Microseconds()) / 1000
+	if err != nil {
+		return "", 0, s.attachError(command, err)
+	}
+	return out, dur, nil
+}
+
+func (s *Server) attachError(command string, err error) *apiError {
+	s.Log.Warn("attach failed", "command", command, "err", err)
+	var ce *attach.CommandError
+	switch {
+	case errors.Is(err, attach.ErrTimeout):
+		return newError(CodeAttachTimeout, "", nil)
+	case errors.Is(err, attach.ErrTooLarge):
+		return newError(CodeOutputTooLarge, "", nil)
+	case errors.As(err, &ce):
+		return newError(CodeAttachFailed, "", map[string]any{"code": ce.Code, "output": truncate(ce.Message, 300)})
+	}
+	return newError(CodeAttachFailed, "", nil)
+}
+
+func truncate(s string, n int) string {
+	if len(s) > n {
+		return s[:n]
+	}
+	return s
 }
 
 func (s *Server) notImplemented(w http.ResponseWriter, r *http.Request, _ string) {

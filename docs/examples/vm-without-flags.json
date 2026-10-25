@@ -1,5 +1,5 @@
 {
-  "sampled_at": 1792929810000,
+  "sampled_at": 1792866607712,
   "java": {
     "version": "25.0.4.1",
     "feature_version": 25,
@@ -16,7 +16,7 @@
     "java_command": "server.jar",
     "class_path": "server.jar",
     "started_at": 1792866595712,
-    "uptime_ms": 63214288
+    "uptime_ms": 12000
   },
   "memory_settings": {
     "xms_bytes": 134217728,
@@ -57,9 +57,9 @@
   },
   "attach": {
     "supported": true,
-    "listener_running": true,
-    "available": true,
-    "reason": null
+    "listener_running": false,
+    "available": false,
+    "reason": "jvm_starting"
   },
   "container": {
     "memory_limit_bytes": 2299579597,
@@ -74,5 +74,5 @@
     "tmpfs_size_bytes": 104857600
   },
   "flags": null,
-  "flags_error": "not_implemented"
+  "flags_error": "attach_unavailable"
 }

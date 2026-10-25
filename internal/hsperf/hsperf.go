@@ -187,3 +187,8 @@ func (d *Data) Names(prefix string) []string {
 	sort.Strings(out)
 	return out
 }
+
+// SetString overrides a string counter (for tests of callers).
+func (d *Data) SetString(name, v string) {
+	d.entries[name] = Value{Units: UnitsString, IsString: true, String: v}
+}
