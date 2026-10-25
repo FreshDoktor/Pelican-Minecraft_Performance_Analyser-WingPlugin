@@ -1,0 +1,5 @@
+{
+  "error": "no_java_process",
+  "message": "No Java process runs in the server container.",
+  "details": null
+}

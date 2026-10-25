@@ -1,0 +1,22 @@
+{
+  "bridge_version": "0.1.0",
+  "api_version": 1,
+  "features": [
+    "status",
+    "vm",
+    "metrics",
+    "threads",
+    "histogram",
+    "vm_flags",
+    "live_heap",
+    "profiles"
+  ],
+  "started_at": 1792926210000,
+  "uptime_ms": 3600000,
+  "sampled_at": 1792929810000,
+  "tls": false,
+  "limits": {
+    "max_concurrent_profiles": 2,
+    "max_profile_seconds": 120
+  }
+}

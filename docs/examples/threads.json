@@ -1,0 +1,1892 @@
+{
+  "sampled_at": 1792930183412,
+  "duration_ms": 18.204,
+  "dumped_at_local": "2026-10-25 13:09:43",
+  "vm": "OpenJDK 64-Bit Server VM (25.0.4.1+1-LTS mixed mode, sharing)",
+  "summary": {
+    "total": 28,
+    "java": 26,
+    "vm": 2,
+    "daemon": 19,
+    "by_state": {
+      "BLOCKED": 0,
+      "NEW": 0,
+      "RUNNABLE": 13,
+      "TERMINATED": 0,
+      "TIMED_WAITING": 12,
+      "WAITING": 1
+    }
+  },
+  "threads": [
+    {
+      "name": "Reference Handler",
+      "java_id": 6,
+      "os_id": 30,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 10,
+      "os_priority": 0,
+      "cpu_ms": 3.9,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "java.lang.ref.Reference.waitForReferencePendingList",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.Reference.processPendingReferences",
+          "module": "java.base@25.0.4.1",
+          "file": "Reference.java",
+          "line": 246,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.Reference$ReferenceHandler.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Reference.java",
+          "line": 208,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Finalizer",
+      "java_id": 7,
+      "os_id": 31,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 8,
+      "os_priority": 0,
+      "cpu_ms": 0.25,
+      "elapsed_ms": 34400,
+      "state": "WAITING",
+      "state_detail": "on object monitor",
+      "os_state": "in Object.wait()",
+      "stack": [
+        {
+          "method": "java.lang.Object.wait0",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "waiting_on",
+              "address": "0x00000000b0cbb838",
+              "class": "java.lang.ref.ReferenceQueue$Lock"
+            }
+          ]
+        },
+        {
+          "method": "java.lang.Object.wait",
+          "module": "java.base@25.0.4.1",
+          "file": "Object.java",
+          "line": 389,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Object.wait",
+          "module": "java.base@25.0.4.1",
+          "file": "Object.java",
+          "line": 351,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.ReferenceQueue.remove0",
+          "module": "java.base@25.0.4.1",
+          "file": "ReferenceQueue.java",
+          "line": 137,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.ReferenceQueue.remove",
+          "module": "java.base@25.0.4.1",
+          "file": "ReferenceQueue.java",
+          "line": 215,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b0cbb838",
+              "class": "java.lang.ref.ReferenceQueue$Lock"
+            }
+          ]
+        },
+        {
+          "method": "java.lang.ref.Finalizer$FinalizerThread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Finalizer.java",
+          "line": 165,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Signal Dispatcher",
+      "java_id": 8,
+      "os_id": 32,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 0.22,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Service Thread",
+      "java_id": 9,
+      "os_id": 33,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 14.97,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Monitor Deflation Thread",
+      "java_id": 10,
+      "os_id": 34,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 1.61,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "C2 CompilerThread0",
+      "java_id": 11,
+      "os_id": 35,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 7884.11,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": [
+        "No compile task"
+      ]
+    },
+    {
+      "name": "C1 CompilerThread0",
+      "java_id": 12,
+      "os_id": 36,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 1864.25,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": [
+        "No compile task"
+      ]
+    },
+    {
+      "name": "Notification Thread",
+      "java_id": 13,
+      "os_id": 37,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 0.06,
+      "elapsed_ms": 34400,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Common-Cleaner",
+      "java_id": 14,
+      "os_id": 38,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 8,
+      "os_priority": 0,
+      "cpu_ms": 0.42,
+      "elapsed_ms": 34400,
+      "state": "TIMED_WAITING",
+      "state_detail": "on object monitor",
+      "os_state": "in Object.wait()",
+      "stack": [
+        {
+          "method": "java.lang.Object.wait0",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "waiting_on",
+              "address": "0x00000000b0cbb8f0",
+              "class": "java.lang.ref.ReferenceQueue$Lock"
+            }
+          ]
+        },
+        {
+          "method": "java.lang.Object.wait",
+          "module": "java.base@25.0.4.1",
+          "file": "Object.java",
+          "line": 389,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.ReferenceQueue.remove0",
+          "module": "java.base@25.0.4.1",
+          "file": "ReferenceQueue.java",
+          "line": 123,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.ReferenceQueue.remove",
+          "module": "java.base@25.0.4.1",
+          "file": "ReferenceQueue.java",
+          "line": 201,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b0cbb8f0",
+              "class": "java.lang.ref.ReferenceQueue$Lock"
+            }
+          ]
+        },
+        {
+          "method": "jdk.internal.ref.CleanerImpl.run",
+          "module": "java.base@25.0.4.1",
+          "file": "CleanerImpl.java",
+          "line": 146,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "jdk.internal.misc.InnocuousThread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "InnocuousThread.java",
+          "line": 148,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "process reaper",
+      "java_id": 22,
+      "os_id": 44,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 10,
+      "os_priority": 0,
+      "cpu_ms": 0.84,
+      "elapsed_ms": 31750,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b2923190",
+              "class": "java.util.concurrent.SynchronousQueue$Transferer"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 408,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.LinkedTransferQueue$DualNode.await",
+          "module": "java.base@25.0.4.1",
+          "file": "LinkedTransferQueue.java",
+          "line": 452,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue$Transferer.xferLifo",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 194,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.xfer",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 235,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.poll",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 338,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.getTask",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1015,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1076,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor$Worker.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 614,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "jdk.internal.misc.InnocuousThread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "InnocuousThread.java",
+          "line": 148,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "JNA Cleaner",
+      "java_id": 23,
+      "os_id": 45,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 0.55,
+      "elapsed_ms": 31750,
+      "state": "TIMED_WAITING",
+      "state_detail": "on object monitor",
+      "os_state": "in Object.wait()",
+      "stack": [
+        {
+          "method": "java.lang.Object.wait0",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "waiting_on",
+              "address": "0x00000000b2925778",
+              "class": "java.lang.ref.ReferenceQueue$Lock"
+            }
+          ]
+        },
+        {
+          "method": "java.lang.Object.wait",
+          "module": "java.base@25.0.4.1",
+          "file": "Object.java",
+          "line": 389,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.ReferenceQueue.remove0",
+          "module": "java.base@25.0.4.1",
+          "file": "ReferenceQueue.java",
+          "line": 123,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.ref.ReferenceQueue.remove",
+          "module": "java.base@25.0.4.1",
+          "file": "ReferenceQueue.java",
+          "line": 201,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b2925778",
+              "class": "java.lang.ref.ReferenceQueue$Lock"
+            }
+          ]
+        },
+        {
+          "method": "com.sun.jna.internal.Cleaner$CleanerThread.run",
+          "module": null,
+          "file": "Cleaner.java",
+          "line": 154,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Timer hack thread",
+      "java_id": 24,
+      "os_id": 54,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 0.37,
+      "elapsed_ms": 24170,
+      "state": "TIMED_WAITING",
+      "state_detail": "sleeping",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "java.lang.Thread.sleepNanos0",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.sleepNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 509,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.sleep",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 540,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.util.Util$9.run",
+          "module": null,
+          "file": "Util.java",
+          "line": 1009,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Minecraft Services Discovery",
+      "java_id": 25,
+      "os_id": 55,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 291.32,
+      "elapsed_ms": 24060,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b60485e0",
+              "class": "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 271,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "AbstractQueuedSynchronizer.java",
+          "line": 1803,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take",
+          "module": "java.base@25.0.4.1",
+          "file": "ScheduledThreadPoolExecutor.java",
+          "line": 1166,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take",
+          "module": "java.base@25.0.4.1",
+          "file": "ScheduledThreadPoolExecutor.java",
+          "line": 883,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.getTask",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1016,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1076,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor$Worker.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 614,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Worker-Main-1",
+      "java_id": 26,
+      "os_id": 56,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 2640.21,
+      "elapsed_ms": 23560,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b2bfafa8",
+              "class": "java.util.concurrent.ForkJoinPool"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.ForkJoinPool.awaitWork",
+          "module": "java.base@25.0.4.1",
+          "file": "ForkJoinPool.java",
+          "line": 2109,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ForkJoinPool.deactivate",
+          "module": "java.base@25.0.4.1",
+          "file": "ForkJoinPool.java",
+          "line": 2063,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ForkJoinPool.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ForkJoinPool.java",
+          "line": 2027,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ForkJoinWorkerThread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ForkJoinWorkerThread.java",
+          "line": 187,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Server thread",
+      "java_id": 30,
+      "os_id": 60,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 656.31,
+      "elapsed_ms": 19430,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "runnable",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b82a7ff0",
+              "class": "java.lang.String"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 271,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.MinecraftServer.waitForTasks",
+          "module": null,
+          "file": "MinecraftServer.java",
+          "line": 870,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.util.thread.BlockableEventLoop.managedBlock",
+          "module": null,
+          "file": "BlockableEventLoop.java",
+          "line": 158,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.MinecraftServer.waitUntilNextTick",
+          "module": null,
+          "file": "MinecraftServer.java",
+          "line": 859,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.MinecraftServer.runServer",
+          "module": null,
+          "file": "MinecraftServer.java",
+          "line": 758,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.MinecraftServer.lambda$spin$0",
+          "module": null,
+          "file": "MinecraftServer.java",
+          "line": 310,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.MinecraftServer$$Lambda/0x0000000010f1aa00.run",
+          "module": null,
+          "file": null,
+          "line": null,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Server console handler",
+      "java_id": 32,
+      "os_id": 61,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 0.15,
+      "elapsed_ms": 19430,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [
+        {
+          "method": "java.io.FileInputStream.readBytes",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "java.io.FileInputStream.read",
+          "module": "java.base@25.0.4.1",
+          "file": "FileInputStream.java",
+          "line": 281,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.System$In.read",
+          "module": "java.base@25.0.4.1",
+          "file": "System.java",
+          "line": 1872,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.io.BufferedInputStream.read1",
+          "module": "java.base@25.0.4.1",
+          "file": "BufferedInputStream.java",
+          "line": 328,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.io.BufferedInputStream.read",
+          "module": "java.base@25.0.4.1",
+          "file": "BufferedInputStream.java",
+          "line": 388,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b0cbfeb8",
+              "class": "java.io.BufferedInputStream"
+            }
+          ]
+        },
+        {
+          "method": "sun.nio.cs.StreamDecoder.readBytes",
+          "module": "java.base@25.0.4.1",
+          "file": "StreamDecoder.java",
+          "line": 279,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "sun.nio.cs.StreamDecoder.implRead",
+          "module": "java.base@25.0.4.1",
+          "file": "StreamDecoder.java",
+          "line": 322,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "sun.nio.cs.StreamDecoder.read",
+          "module": "java.base@25.0.4.1",
+          "file": "StreamDecoder.java",
+          "line": 186,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b7b49158",
+              "class": "java.io.InputStreamReader"
+            }
+          ]
+        },
+        {
+          "method": "java.io.InputStreamReader.read",
+          "module": "java.base@25.0.4.1",
+          "file": "InputStreamReader.java",
+          "line": 183,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.io.BufferedReader.fill",
+          "module": "java.base@25.0.4.1",
+          "file": "BufferedReader.java",
+          "line": 166,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.io.BufferedReader.readLine",
+          "module": "java.base@25.0.4.1",
+          "file": "BufferedReader.java",
+          "line": 333,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b7b49158",
+              "class": "java.io.InputStreamReader"
+            }
+          ]
+        },
+        {
+          "method": "java.io.BufferedReader.readLine",
+          "module": "java.base@25.0.4.1",
+          "file": "BufferedReader.java",
+          "line": 400,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.dedicated.DedicatedServer$1.run",
+          "module": null,
+          "file": "DedicatedServer.java",
+          "line": 146,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "DestroyJavaVM",
+      "java_id": 34,
+      "os_id": 27,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 4910.64,
+      "elapsed_ms": 19430,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Netty Epoll IO #0",
+      "java_id": 35,
+      "os_id": 62,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 14.04,
+      "elapsed_ms": 18850,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [
+        {
+          "method": "io.netty.channel.epoll.Native.epollWait0",
+          "module": null,
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.epoll.Native.epollWait",
+          "module": null,
+          "file": "Native.java",
+          "line": 193,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.epoll.EpollIoHandler.epollWait",
+          "module": null,
+          "file": "EpollIoHandler.java",
+          "line": 404,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.epoll.EpollIoHandler.run",
+          "module": null,
+          "file": "EpollIoHandler.java",
+          "line": 470,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.SingleThreadIoEventLoop.runIo",
+          "module": null,
+          "file": "SingleThreadIoEventLoop.java",
+          "line": 225,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.SingleThreadIoEventLoop.run",
+          "module": null,
+          "file": "SingleThreadIoEventLoop.java",
+          "line": 196,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.util.concurrent.SingleThreadEventExecutor$5.run",
+          "module": null,
+          "file": "SingleThreadEventExecutor.java",
+          "line": 1204,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.util.internal.ThreadExecutorMap$2.run",
+          "module": null,
+          "file": "ThreadExecutorMap.java",
+          "line": 74,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [
+        {
+          "type": "owned",
+          "address": "0x00000000b8376418",
+          "class": "java.util.concurrent.locks.ReentrantLock$NonfairSync"
+        }
+      ],
+      "info": []
+    },
+    {
+      "name": "Query Listener #1",
+      "java_id": 36,
+      "os_id": 63,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 4.82,
+      "elapsed_ms": 18340,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [
+        {
+          "method": "sun.nio.ch.Net.poll",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "sun.nio.ch.DatagramChannelImpl.park",
+          "module": "java.base@25.0.4.1",
+          "file": "DatagramChannelImpl.java",
+          "line": 496,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "sun.nio.ch.DatagramChannelImpl.tryBlockingReceive",
+          "module": "java.base@25.0.4.1",
+          "file": "DatagramChannelImpl.java",
+          "line": 671,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "sun.nio.ch.DatagramChannelImpl.blockingReceive",
+          "module": "java.base@25.0.4.1",
+          "file": "DatagramChannelImpl.java",
+          "line": 619,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "sun.nio.ch.DatagramSocketAdaptor.receive",
+          "module": "java.base@25.0.4.1",
+          "file": "DatagramSocketAdaptor.java",
+          "line": 193,
+          "native": false,
+          "locks": [
+            {
+              "type": "locked",
+              "address": "0x00000000b8271338",
+              "class": "java.net.DatagramPacket"
+            }
+          ]
+        },
+        {
+          "method": "java.net.DatagramSocket.receive",
+          "module": "java.base@25.0.4.1",
+          "file": "DatagramSocket.java",
+          "line": 638,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.rcon.thread.QueryThreadGs4.run",
+          "module": null,
+          "file": "QueryThreadGs4.java",
+          "line": 257,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [
+        {
+          "type": "owned",
+          "address": "0x00000000b8376588",
+          "class": "java.util.concurrent.locks.ReentrantLock$NonfairSync"
+        }
+      ],
+      "info": []
+    },
+    {
+      "name": "Server Watchdog",
+      "java_id": 37,
+      "os_id": 64,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 0.14,
+      "elapsed_ms": 18340,
+      "state": "TIMED_WAITING",
+      "state_detail": "sleeping",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "java.lang.Thread.sleepNanos0",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.sleepNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 509,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.sleep",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 540,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "net.minecraft.server.dedicated.ServerWatchdog.run",
+          "module": null,
+          "file": "ServerWatchdog.java",
+          "line": 72,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "IO-Worker-1",
+      "java_id": 38,
+      "os_id": 65,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 2.66,
+      "elapsed_ms": 18270,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b2ce7810",
+              "class": "java.util.concurrent.SynchronousQueue$Transferer"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 408,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.LinkedTransferQueue$DualNode.await",
+          "module": "java.base@25.0.4.1",
+          "file": "LinkedTransferQueue.java",
+          "line": 452,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue$Transferer.xferLifo",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 194,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.xfer",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 235,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.poll",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 338,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.getTask",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1015,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1076,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor$Worker.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 614,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "IO-Worker-2",
+      "java_id": 39,
+      "os_id": 66,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 1.16,
+      "elapsed_ms": 18260,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b2ce7810",
+              "class": "java.util.concurrent.SynchronousQueue$Transferer"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 408,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.LinkedTransferQueue$DualNode.await",
+          "module": "java.base@25.0.4.1",
+          "file": "LinkedTransferQueue.java",
+          "line": 452,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue$Transferer.xferLifo",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 194,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.xfer",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 235,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.poll",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 338,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.getTask",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1015,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1076,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor$Worker.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 614,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "IO-Worker-3",
+      "java_id": 40,
+      "os_id": 67,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 0.14,
+      "elapsed_ms": 18250,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b2ce7810",
+              "class": "java.util.concurrent.SynchronousQueue$Transferer"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 408,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.LinkedTransferQueue$DualNode.await",
+          "module": "java.base@25.0.4.1",
+          "file": "LinkedTransferQueue.java",
+          "line": 452,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue$Transferer.xferLifo",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 194,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.xfer",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 235,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.poll",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 338,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.getTask",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1015,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1076,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor$Worker.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 614,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "IO-Worker-4",
+      "java_id": 41,
+      "os_id": 68,
+      "vm_thread": false,
+      "daemon": false,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 1.82,
+      "elapsed_ms": 18250,
+      "state": "TIMED_WAITING",
+      "state_detail": "parking",
+      "os_state": "waiting on condition",
+      "stack": [
+        {
+          "method": "jdk.internal.misc.Unsafe.park",
+          "module": "java.base@25.0.4.1",
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": [
+            {
+              "type": "parking",
+              "address": "0x00000000b2ce7810",
+              "class": "java.util.concurrent.SynchronousQueue$Transferer"
+            }
+          ]
+        },
+        {
+          "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+          "module": "java.base@25.0.4.1",
+          "file": "LockSupport.java",
+          "line": 408,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.LinkedTransferQueue$DualNode.await",
+          "module": "java.base@25.0.4.1",
+          "file": "LinkedTransferQueue.java",
+          "line": 452,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue$Transferer.xferLifo",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 194,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.xfer",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 235,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.SynchronousQueue.poll",
+          "module": "java.base@25.0.4.1",
+          "file": "SynchronousQueue.java",
+          "line": 338,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.getTask",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1015,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor.runWorker",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 1076,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.util.concurrent.ThreadPoolExecutor$Worker.run",
+          "module": "java.base@25.0.4.1",
+          "file": "ThreadPoolExecutor.java",
+          "line": 614,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "Netty Epoll IO #1",
+      "java_id": 42,
+      "os_id": 69,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 5,
+      "os_priority": 0,
+      "cpu_ms": 40.53,
+      "elapsed_ms": 17360,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [
+        {
+          "method": "io.netty.channel.epoll.Native.epollWait0",
+          "module": null,
+          "file": null,
+          "line": null,
+          "native": true,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.epoll.Native.epollWait",
+          "module": null,
+          "file": "Native.java",
+          "line": 193,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.epoll.EpollIoHandler.epollWait",
+          "module": null,
+          "file": "EpollIoHandler.java",
+          "line": 404,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.epoll.EpollIoHandler.run",
+          "module": null,
+          "file": "EpollIoHandler.java",
+          "line": 470,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.SingleThreadIoEventLoop.runIo",
+          "module": null,
+          "file": "SingleThreadIoEventLoop.java",
+          "line": 225,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.channel.SingleThreadIoEventLoop.run",
+          "module": null,
+          "file": "SingleThreadIoEventLoop.java",
+          "line": 196,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.util.concurrent.SingleThreadEventExecutor$5.run",
+          "module": null,
+          "file": "SingleThreadEventExecutor.java",
+          "line": 1204,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "io.netty.util.internal.ThreadExecutorMap$2.run",
+          "module": null,
+          "file": "ThreadExecutorMap.java",
+          "line": 74,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.runWith",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1487,
+          "native": false,
+          "locks": []
+        },
+        {
+          "method": "java.lang.Thread.run",
+          "module": "java.base@25.0.4.1",
+          "file": "Thread.java",
+          "line": 1474,
+          "native": false,
+          "locks": []
+        }
+      ],
+      "locked_synchronizers": [
+        {
+          "type": "owned",
+          "address": "0x00000000b837ee00",
+          "class": "java.util.concurrent.locks.ReentrantLock$NonfairSync"
+        }
+      ],
+      "info": []
+    },
+    {
+      "name": "Attach Listener",
+      "java_id": 43,
+      "os_id": 89,
+      "vm_thread": false,
+      "daemon": true,
+      "priority": 9,
+      "os_priority": 0,
+      "cpu_ms": 0.35,
+      "elapsed_ms": 140,
+      "state": "RUNNABLE",
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "VM Thread",
+      "java_id": null,
+      "os_id": 29,
+      "vm_thread": true,
+      "daemon": false,
+      "priority": null,
+      "os_priority": 0,
+      "cpu_ms": 1013.3,
+      "elapsed_ms": 34410,
+      "state": null,
+      "state_detail": null,
+      "os_state": "runnable",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    },
+    {
+      "name": "VM Periodic Task Thread",
+      "java_id": null,
+      "os_id": 28,
+      "vm_thread": true,
+      "daemon": false,
+      "priority": null,
+      "os_priority": 0,
+      "cpu_ms": 0.76,
+      "elapsed_ms": 34410,
+      "state": null,
+      "state_detail": null,
+      "os_state": "waiting on condition",
+      "stack": [],
+      "locked_synchronizers": [],
+      "info": []
+    }
+  ],
+  "deadlocks": [],
+  "jni_refs": {
+    "global": 41,
+    "weak": 49
+  },
+  "raw": "2026-10-25 13:09:43\nFull thread dump OpenJDK 64-Bit Server VM (25.0.4.1+1-LTS mixed mode, sharing):\n\nThreads class SMR info:\n_java_thread_list=0x0000732304001e50, length=26, elements={\n0x0000732334074d50, 0x0000732334076550, 0x0000732334077f70, 0x0000732334079860,\n0x000073233407b0b0, 0x000073233407ce80, 0x000073233407e840, 0x00007323340929f0,\n0x0000732334095150, 0x00007323347bb360, 0x000073233481ed00, 0x0000732335625750,\n0x0000732335688ce0, 0x00007323356f8da0, 0x00007323357779d0, 0x00007322c4001150,\n0x000073233402b860, 0x00007322c4160050, 0x00007322c4221c70, 0x00007322c4223780,\n0x00007322c4234350, 0x00007322b8003080, 0x00007322ac0019a0, 0x00007322b80044d0,\n0x00007322bc00b1b0, 0x0000732304000f30\n}\n\n\"Reference Handler\" #6 [30] daemon prio=10 os_prio=0 cpu=3.90ms elapsed=34.40s tid=0x0000732334074d50 nid=30 waiting on condition  [0x0000732313ffe000]\n   java.lang.Thread.State: RUNNABLE\n\tat java.lang.ref.Reference.waitForReferencePendingList(java.base@25.0.4.1/Native Method)\n\tat java.lang.ref.Reference.processPendingReferences(java.base@25.0.4.1/Reference.java:246)\n\tat java.lang.ref.Reference$ReferenceHandler.run(java.base@25.0.4.1/Reference.java:208)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Finalizer\" #7 [31] daemon prio=8 os_prio=0 cpu=0.25ms elapsed=34.40s tid=0x0000732334076550 nid=31 in Object.wait()  [0x0000732313efe000]\n   java.lang.Thread.State: WAITING (on object monitor)\n\tat java.lang.Object.wait0(java.base@25.0.4.1/Native Method)\n\t- waiting on <0x00000000b0cbb838> (a java.lang.ref.ReferenceQueue$Lock)\n\tat java.lang.Object.wait(java.base@25.0.4.1/Object.java:389)\n\tat java.lang.Object.wait(java.base@25.0.4.1/Object.java:351)\n\tat java.lang.ref.ReferenceQueue.remove0(java.base@25.0.4.1/ReferenceQueue.java:137)\n\tat java.lang.ref.ReferenceQueue.remove(java.base@25.0.4.1/ReferenceQueue.java:215)\n\t- locked <0x00000000b0cbb838> (a java.lang.ref.ReferenceQueue$Lock)\n\tat java.lang.ref.Finalizer$FinalizerThread.run(java.base@25.0.4.1/Finalizer.java:165)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Signal Dispatcher\" #8 [32] daemon prio=9 os_prio=0 cpu=0.22ms elapsed=34.40s tid=0x0000732334077f70 nid=32 waiting on condition  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Service Thread\" #9 [33] daemon prio=9 os_prio=0 cpu=14.97ms elapsed=34.40s tid=0x0000732334079860 nid=33 runnable  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Monitor Deflation Thread\" #10 [34] daemon prio=9 os_prio=0 cpu=1.61ms elapsed=34.40s tid=0x000073233407b0b0 nid=34 runnable  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n\n   Locked ownable synchronizers:\n\t- None\n\n\"C2 CompilerThread0\" #11 [35] daemon prio=9 os_prio=0 cpu=7884.11ms elapsed=34.40s tid=0x000073233407ce80 nid=35 waiting on condition  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n   No compile task\n\n   Locked ownable synchronizers:\n\t- None\n\n\"C1 CompilerThread0\" #12 [36] daemon prio=9 os_prio=0 cpu=1864.25ms elapsed=34.40s tid=0x000073233407e840 nid=36 waiting on condition  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n   No compile task\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Notification Thread\" #13 [37] daemon prio=9 os_prio=0 cpu=0.06ms elapsed=34.40s tid=0x00007323340929f0 nid=37 runnable  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Common-Cleaner\" #14 [38] daemon prio=8 os_prio=0 cpu=0.42ms elapsed=34.40s tid=0x0000732334095150 nid=38 in Object.wait()  [0x00007323137fe000]\n   java.lang.Thread.State: TIMED_WAITING (on object monitor)\n\tat java.lang.Object.wait0(java.base@25.0.4.1/Native Method)\n\t- waiting on <0x00000000b0cbb8f0> (a java.lang.ref.ReferenceQueue$Lock)\n\tat java.lang.Object.wait(java.base@25.0.4.1/Object.java:389)\n\tat java.lang.ref.ReferenceQueue.remove0(java.base@25.0.4.1/ReferenceQueue.java:123)\n\tat java.lang.ref.ReferenceQueue.remove(java.base@25.0.4.1/ReferenceQueue.java:201)\n\t- locked <0x00000000b0cbb8f0> (a java.lang.ref.ReferenceQueue$Lock)\n\tat jdk.internal.ref.CleanerImpl.run(java.base@25.0.4.1/CleanerImpl.java:146)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\tat jdk.internal.misc.InnocuousThread.run(java.base@25.0.4.1/InnocuousThread.java:148)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"process reaper\" #22 [44] daemon prio=10 os_prio=0 cpu=0.84ms elapsed=31.75s tid=0x00007323347bb360 nid=44 waiting on condition  [0x000073231c0a2000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b2923190> (a java.util.concurrent.SynchronousQueue$Transferer)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:408)\n\tat java.util.concurrent.LinkedTransferQueue$DualNode.await(java.base@25.0.4.1/LinkedTransferQueue.java:452)\n\tat java.util.concurrent.SynchronousQueue$Transferer.xferLifo(java.base@25.0.4.1/SynchronousQueue.java:194)\n\tat java.util.concurrent.SynchronousQueue.xfer(java.base@25.0.4.1/SynchronousQueue.java:235)\n\tat java.util.concurrent.SynchronousQueue.poll(java.base@25.0.4.1/SynchronousQueue.java:338)\n\tat java.util.concurrent.ThreadPoolExecutor.getTask(java.base@25.0.4.1/ThreadPoolExecutor.java:1015)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@25.0.4.1/ThreadPoolExecutor.java:1076)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@25.0.4.1/ThreadPoolExecutor.java:614)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\tat jdk.internal.misc.InnocuousThread.run(java.base@25.0.4.1/InnocuousThread.java:148)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"JNA Cleaner\" #23 [45] daemon prio=5 os_prio=0 cpu=0.55ms elapsed=31.75s tid=0x000073233481ed00 nid=45 in Object.wait()  [0x00007323136fe000]\n   java.lang.Thread.State: TIMED_WAITING (on object monitor)\n\tat java.lang.Object.wait0(java.base@25.0.4.1/Native Method)\n\t- waiting on <0x00000000b2925778> (a java.lang.ref.ReferenceQueue$Lock)\n\tat java.lang.Object.wait(java.base@25.0.4.1/Object.java:389)\n\tat java.lang.ref.ReferenceQueue.remove0(java.base@25.0.4.1/ReferenceQueue.java:123)\n\tat java.lang.ref.ReferenceQueue.remove(java.base@25.0.4.1/ReferenceQueue.java:201)\n\t- locked <0x00000000b2925778> (a java.lang.ref.ReferenceQueue$Lock)\n\tat com.sun.jna.internal.Cleaner$CleanerThread.run(Cleaner.java:154)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Timer hack thread\" #24 [54] daemon prio=5 os_prio=0 cpu=0.37ms elapsed=24.17s tid=0x0000732335625750 nid=54 waiting on condition  [0x00007323135fe000]\n   java.lang.Thread.State: TIMED_WAITING (sleeping)\n\tat java.lang.Thread.sleepNanos0(java.base@25.0.4.1/Native Method)\n\tat java.lang.Thread.sleepNanos(java.base@25.0.4.1/Thread.java:509)\n\tat java.lang.Thread.sleep(java.base@25.0.4.1/Thread.java:540)\n\tat net.minecraft.util.Util$9.run(Util.java:1009)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Minecraft Services Discovery\" #25 [55] daemon prio=5 os_prio=0 cpu=291.32ms elapsed=24.06s tid=0x0000732335688ce0 nid=55 waiting on condition  [0x00007323131fe000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b60485e0> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:271)\n\tat java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(java.base@25.0.4.1/AbstractQueuedSynchronizer.java:1803)\n\tat java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(java.base@25.0.4.1/ScheduledThreadPoolExecutor.java:1166)\n\tat java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(java.base@25.0.4.1/ScheduledThreadPoolExecutor.java:883)\n\tat java.util.concurrent.ThreadPoolExecutor.getTask(java.base@25.0.4.1/ThreadPoolExecutor.java:1016)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@25.0.4.1/ThreadPoolExecutor.java:1076)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@25.0.4.1/ThreadPoolExecutor.java:614)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Worker-Main-1\" #26 [56] daemon prio=5 os_prio=0 cpu=2640.21ms elapsed=23.56s tid=0x00007323356f8da0 nid=56 waiting on condition  [0x0000732312f1a000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b2bfafa8> (a java.util.concurrent.ForkJoinPool)\n\tat java.util.concurrent.ForkJoinPool.awaitWork(java.base@25.0.4.1/ForkJoinPool.java:2109)\n\tat java.util.concurrent.ForkJoinPool.deactivate(java.base@25.0.4.1/ForkJoinPool.java:2063)\n\tat java.util.concurrent.ForkJoinPool.runWorker(java.base@25.0.4.1/ForkJoinPool.java:2027)\n\tat java.util.concurrent.ForkJoinWorkerThread.run(java.base@25.0.4.1/ForkJoinWorkerThread.java:187)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Server thread\" #30 [60] prio=5 os_prio=0 cpu=656.31ms elapsed=19.43s tid=0x00007323357779d0 nid=60 runnable  [0x0000732312d1a000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b82a7ff0> (a java.lang.String)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:271)\n\tat net.minecraft.server.MinecraftServer.waitForTasks(MinecraftServer.java:870)\n\tat net.minecraft.util.thread.BlockableEventLoop.managedBlock(BlockableEventLoop.java:158)\n\tat net.minecraft.server.MinecraftServer.waitUntilNextTick(MinecraftServer.java:859)\n\tat net.minecraft.server.MinecraftServer.runServer(MinecraftServer.java:758)\n\tat net.minecraft.server.MinecraftServer.lambda$spin$0(MinecraftServer.java:310)\n\tat net.minecraft.server.MinecraftServer$$Lambda/0x0000000010f1aa00.run(Unknown Source)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Server console handler\" #32 [61] daemon prio=5 os_prio=0 cpu=0.15ms elapsed=19.43s tid=0x00007322c4001150 nid=61 runnable  [0x00007323130fe000]\n   java.lang.Thread.State: RUNNABLE\n\tat java.io.FileInputStream.readBytes(java.base@25.0.4.1/Native Method)\n\tat java.io.FileInputStream.read(java.base@25.0.4.1/FileInputStream.java:281)\n\tat java.lang.System$In.read(java.base@25.0.4.1/System.java:1872)\n\tat java.io.BufferedInputStream.read1(java.base@25.0.4.1/BufferedInputStream.java:328)\n\tat java.io.BufferedInputStream.read(java.base@25.0.4.1/BufferedInputStream.java:388)\n\t- locked <0x00000000b0cbfeb8> (a java.io.BufferedInputStream)\n\tat sun.nio.cs.StreamDecoder.readBytes(java.base@25.0.4.1/StreamDecoder.java:279)\n\tat sun.nio.cs.StreamDecoder.implRead(java.base@25.0.4.1/StreamDecoder.java:322)\n\tat sun.nio.cs.StreamDecoder.read(java.base@25.0.4.1/StreamDecoder.java:186)\n\t- locked <0x00000000b7b49158> (a java.io.InputStreamReader)\n\tat java.io.InputStreamReader.read(java.base@25.0.4.1/InputStreamReader.java:183)\n\tat java.io.BufferedReader.fill(java.base@25.0.4.1/BufferedReader.java:166)\n\tat java.io.BufferedReader.readLine(java.base@25.0.4.1/BufferedReader.java:333)\n\t- locked <0x00000000b7b49158> (a java.io.InputStreamReader)\n\tat java.io.BufferedReader.readLine(java.base@25.0.4.1/BufferedReader.java:400)\n\tat net.minecraft.server.dedicated.DedicatedServer$1.run(DedicatedServer.java:146)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"DestroyJavaVM\" #34 [27] prio=5 os_prio=0 cpu=4910.64ms elapsed=19.43s tid=0x000073233402b860 nid=27 waiting on condition  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Netty Epoll IO #0\" #35 [62] daemon prio=5 os_prio=0 cpu=14.04ms elapsed=18.85s tid=0x00007322c4160050 nid=62 runnable  [0x0000732312c1a000]\n   java.lang.Thread.State: RUNNABLE\n\tat io.netty.channel.epoll.Native.epollWait0(Native Method)\n\tat io.netty.channel.epoll.Native.epollWait(Native.java:193)\n\tat io.netty.channel.epoll.EpollIoHandler.epollWait(EpollIoHandler.java:404)\n\tat io.netty.channel.epoll.EpollIoHandler.run(EpollIoHandler.java:470)\n\tat io.netty.channel.SingleThreadIoEventLoop.runIo(SingleThreadIoEventLoop.java:225)\n\tat io.netty.channel.SingleThreadIoEventLoop.run(SingleThreadIoEventLoop.java:196)\n\tat io.netty.util.concurrent.SingleThreadEventExecutor$5.run(SingleThreadEventExecutor.java:1204)\n\tat io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- <0x00000000b8376418> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)\n\n\"Query Listener #1\" #36 [63] prio=5 os_prio=0 cpu=4.82ms elapsed=18.34s tid=0x00007322c4221c70 nid=63 runnable  [0x0000732312b1a000]\n   java.lang.Thread.State: RUNNABLE\n\tat sun.nio.ch.Net.poll(java.base@25.0.4.1/Native Method)\n\tat sun.nio.ch.DatagramChannelImpl.park(java.base@25.0.4.1/DatagramChannelImpl.java:496)\n\tat sun.nio.ch.DatagramChannelImpl.tryBlockingReceive(java.base@25.0.4.1/DatagramChannelImpl.java:671)\n\tat sun.nio.ch.DatagramChannelImpl.blockingReceive(java.base@25.0.4.1/DatagramChannelImpl.java:619)\n\tat sun.nio.ch.DatagramSocketAdaptor.receive(java.base@25.0.4.1/DatagramSocketAdaptor.java:193)\n\t- locked <0x00000000b8271338> (a java.net.DatagramPacket)\n\tat java.net.DatagramSocket.receive(java.base@25.0.4.1/DatagramSocket.java:638)\n\tat net.minecraft.server.rcon.thread.QueryThreadGs4.run(QueryThreadGs4.java:257)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- <0x00000000b8376588> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)\n\n\"Server Watchdog\" #37 [64] daemon prio=5 os_prio=0 cpu=0.14ms elapsed=18.34s tid=0x00007322c4223780 nid=64 waiting on condition  [0x0000732312a1a000]\n   java.lang.Thread.State: TIMED_WAITING (sleeping)\n\tat java.lang.Thread.sleepNanos0(java.base@25.0.4.1/Native Method)\n\tat java.lang.Thread.sleepNanos(java.base@25.0.4.1/Thread.java:509)\n\tat java.lang.Thread.sleep(java.base@25.0.4.1/Thread.java:540)\n\tat net.minecraft.server.dedicated.ServerWatchdog.run(ServerWatchdog.java:72)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"IO-Worker-1\" #38 [65] prio=5 os_prio=0 cpu=2.66ms elapsed=18.27s tid=0x00007322c4234350 nid=65 waiting on condition  [0x000073231291a000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b2ce7810> (a java.util.concurrent.SynchronousQueue$Transferer)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:408)\n\tat java.util.concurrent.LinkedTransferQueue$DualNode.await(java.base@25.0.4.1/LinkedTransferQueue.java:452)\n\tat java.util.concurrent.SynchronousQueue$Transferer.xferLifo(java.base@25.0.4.1/SynchronousQueue.java:194)\n\tat java.util.concurrent.SynchronousQueue.xfer(java.base@25.0.4.1/SynchronousQueue.java:235)\n\tat java.util.concurrent.SynchronousQueue.poll(java.base@25.0.4.1/SynchronousQueue.java:338)\n\tat java.util.concurrent.ThreadPoolExecutor.getTask(java.base@25.0.4.1/ThreadPoolExecutor.java:1015)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@25.0.4.1/ThreadPoolExecutor.java:1076)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@25.0.4.1/ThreadPoolExecutor.java:614)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"IO-Worker-2\" #39 [66] prio=5 os_prio=0 cpu=1.16ms elapsed=18.26s tid=0x00007322b8003080 nid=66 waiting on condition  [0x000073231281a000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b2ce7810> (a java.util.concurrent.SynchronousQueue$Transferer)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:408)\n\tat java.util.concurrent.LinkedTransferQueue$DualNode.await(java.base@25.0.4.1/LinkedTransferQueue.java:452)\n\tat java.util.concurrent.SynchronousQueue$Transferer.xferLifo(java.base@25.0.4.1/SynchronousQueue.java:194)\n\tat java.util.concurrent.SynchronousQueue.xfer(java.base@25.0.4.1/SynchronousQueue.java:235)\n\tat java.util.concurrent.SynchronousQueue.poll(java.base@25.0.4.1/SynchronousQueue.java:338)\n\tat java.util.concurrent.ThreadPoolExecutor.getTask(java.base@25.0.4.1/ThreadPoolExecutor.java:1015)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@25.0.4.1/ThreadPoolExecutor.java:1076)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@25.0.4.1/ThreadPoolExecutor.java:614)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"IO-Worker-3\" #40 [67] prio=5 os_prio=0 cpu=0.14ms elapsed=18.25s tid=0x00007322ac0019a0 nid=67 waiting on condition  [0x000073231271a000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b2ce7810> (a java.util.concurrent.SynchronousQueue$Transferer)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:408)\n\tat java.util.concurrent.LinkedTransferQueue$DualNode.await(java.base@25.0.4.1/LinkedTransferQueue.java:452)\n\tat java.util.concurrent.SynchronousQueue$Transferer.xferLifo(java.base@25.0.4.1/SynchronousQueue.java:194)\n\tat java.util.concurrent.SynchronousQueue.xfer(java.base@25.0.4.1/SynchronousQueue.java:235)\n\tat java.util.concurrent.SynchronousQueue.poll(java.base@25.0.4.1/SynchronousQueue.java:338)\n\tat java.util.concurrent.ThreadPoolExecutor.getTask(java.base@25.0.4.1/ThreadPoolExecutor.java:1015)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@25.0.4.1/ThreadPoolExecutor.java:1076)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@25.0.4.1/ThreadPoolExecutor.java:614)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"IO-Worker-4\" #41 [68] prio=5 os_prio=0 cpu=1.82ms elapsed=18.25s tid=0x00007322b80044d0 nid=68 waiting on condition  [0x000073231261a000]\n   java.lang.Thread.State: TIMED_WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@25.0.4.1/Native Method)\n\t- parking to wait for  <0x00000000b2ce7810> (a java.util.concurrent.SynchronousQueue$Transferer)\n\tat java.util.concurrent.locks.LockSupport.parkNanos(java.base@25.0.4.1/LockSupport.java:408)\n\tat java.util.concurrent.LinkedTransferQueue$DualNode.await(java.base@25.0.4.1/LinkedTransferQueue.java:452)\n\tat java.util.concurrent.SynchronousQueue$Transferer.xferLifo(java.base@25.0.4.1/SynchronousQueue.java:194)\n\tat java.util.concurrent.SynchronousQueue.xfer(java.base@25.0.4.1/SynchronousQueue.java:235)\n\tat java.util.concurrent.SynchronousQueue.poll(java.base@25.0.4.1/SynchronousQueue.java:338)\n\tat java.util.concurrent.ThreadPoolExecutor.getTask(java.base@25.0.4.1/ThreadPoolExecutor.java:1015)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@25.0.4.1/ThreadPoolExecutor.java:1076)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@25.0.4.1/ThreadPoolExecutor.java:614)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- None\n\n\"Netty Epoll IO #1\" #42 [69] daemon prio=5 os_prio=0 cpu=40.53ms elapsed=17.36s tid=0x00007322bc00b1b0 nid=69 runnable  [0x000073231251a000]\n   java.lang.Thread.State: RUNNABLE\n\tat io.netty.channel.epoll.Native.epollWait0(Native Method)\n\tat io.netty.channel.epoll.Native.epollWait(Native.java:193)\n\tat io.netty.channel.epoll.EpollIoHandler.epollWait(EpollIoHandler.java:404)\n\tat io.netty.channel.epoll.EpollIoHandler.run(EpollIoHandler.java:470)\n\tat io.netty.channel.SingleThreadIoEventLoop.runIo(SingleThreadIoEventLoop.java:225)\n\tat io.netty.channel.SingleThreadIoEventLoop.run(SingleThreadIoEventLoop.java:196)\n\tat io.netty.util.concurrent.SingleThreadEventExecutor$5.run(SingleThreadEventExecutor.java:1204)\n\tat io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)\n\tat java.lang.Thread.runWith(java.base@25.0.4.1/Thread.java:1487)\n\tat java.lang.Thread.run(java.base@25.0.4.1/Thread.java:1474)\n\n   Locked ownable synchronizers:\n\t- <0x00000000b837ee00> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)\n\n\"Attach Listener\" #43 [89] daemon prio=9 os_prio=0 cpu=0.35ms elapsed=0.14s tid=0x0000732304000f30 nid=89 waiting on condition  [0x0000000000000000]\n   java.lang.Thread.State: RUNNABLE\n\n   Locked ownable synchronizers:\n\t- None\n\n\"VM Thread\" os_prio=0 cpu=1013.30ms elapsed=34.41s tid=0x000073233406ae40 nid=29 runnable  \n\n\"VM Periodic Task Thread\" os_prio=0 cpu=0.76ms elapsed=34.41s tid=0x000073233405afa0 nid=28 waiting on condition  \n\nJNI global refs: 41, weak refs: 49\n\n"
+}

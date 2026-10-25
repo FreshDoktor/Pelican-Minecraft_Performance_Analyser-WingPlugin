@@ -1,0 +1,7 @@
+{
+  "error": "profile_running",
+  "message": "A profile is already running for this server.",
+  "details": {
+    "profile_id": "c0f3e1a2b4d59687"
+  }
+}

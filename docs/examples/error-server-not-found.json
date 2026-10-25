@@ -1,0 +1,5 @@
+{
+  "error": "server_not_found",
+  "message": "No Pelican server container with this UUID.",
+  "details": null
+}

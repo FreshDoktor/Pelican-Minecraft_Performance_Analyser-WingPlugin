@@ -1,0 +1,518 @@
+# MPA Bridge HTTP API v1
+
+This is the contract between the MPA Bridge (this repo) and the panel plugin
+[minecraft-performance-analyser](https://github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-PanelPlugin).
+Every response format is shown in [`examples/`](examples/). The examples are
+generated from the bridge's response types and the fixtures in `testdata/`
+(`go test ./internal/api -run Examples -update`), and a test fails when they
+drift apart. The panel may use them 1:1 as fake responses.
+
+If the contract changes, this file and the examples change first, then both sides.
+
+- [Conventions](#conventions)
+- [Authentication and headers](#authentication-and-headers)
+- [Versioning](#versioning)
+- [Endpoints](#endpoints): [node status](#get-apiv1status), [server status](#get-status), [vm](#get-vm), [metrics](#get-metrics), [threads](#get-threads), [histogram](#get-histogram), [profiles](#profiles)
+- [Errors](#errors)
+- [Examples](#examples)
+
+## Conventions
+
+- Base URL: `http://<node>:8090` (HTTPS if Wings has `api.ssl.enabled: true`, then with the Wings certificate).
+- Server endpoints live under `/api/v1/servers/{uuid}/…`. `{uuid}` is the Pelican server UUID
+  (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`, hex, case-insensitive). It must name a container with the
+  Wings labels `Service=Pelican` and `ContainerType=server_process`; anything else is `server_not_found`.
+- Responses are `application/json; charset=utf-8`, UTF-8, keys in `snake_case`.
+- **Every documented field is always present.** Fields marked *nullable* are `null` when unknown or
+  not applicable, they are never omitted. Arrays are never `null` (empty array instead). Objects
+  documented as *map* have dynamic keys.
+- Clients must ignore unknown fields and treat unknown enum values like `unknown` (see [Versioning](#versioning)).
+- **Units** are part of the field name and never vary:
+
+  | Suffix / name | Unit | JSON type |
+  | --- | --- | --- |
+  | `_bytes` | bytes | integer |
+  | `_ms` (durations, uptimes) | milliseconds, fractional values rounded to 3 decimals (µs) | number |
+  | `_at` | Unix time in **milliseconds** (UTC) | integer |
+  | `_us` | microseconds (Docker CPU quota/period only) | integer |
+  | `_percent` | percent, 0–100 (can exceed 100 with several cores) | number |
+  | `count`, `instances`, … | plain count | integer |
+
+  JVM ticks never appear in JSON; the bridge converts them with `sun.os.hrt.frequency`.
+- Timestamps come from the clock of the node (`sampled_at`), JVM times from hsperfdata.
+
+## Authentication and headers
+
+| Header | Direction | Value |
+| --- | --- | --- |
+| `Authorization` | request | `Bearer <token>`: the **node token of Wings** (`token` in `/etc/pelican/config.yml`, i.e. `daemon_token` of the node in the panel). Compared in constant time. |
+| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.1.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
+| `Content-Type` | request | `application/json` for request bodies (`POST /profiles`). Bodies are limited to 4 KiB. |
+
+The bridge resolves the token like Wings: `WINGS_TOKEN` / `WINGS_TOKEN_ID` take precedence over the
+file, then `${VAR}` is expanded and a `file://<path>` value is read from that file. A changed
+`config.yml` (token rotation) is picked up within 10 seconds.
+
+Order of checks: client IP (`allowed_ips` in `mpa-bridge.yml`, `ip_not_allowed`) → token
+(`unauthorized`) → route (`not_found`, `method_not_allowed`) → parameters (`invalid_request`) → server state.
+The client IP is the TCP peer; `X-Forwarded-For` is ignored.
+
+The panel calls the bridge server-side only. The bridge sends no CORS headers.
+
+## Versioning
+
+- The major API version is in the path (`/api/v1`) and in `api_version` (integer, `1`).
+- Within v1 the bridge only makes **additive** changes: new endpoints, new fields, new enum values,
+  new error codes, new `features`. Removing or renaming a field, changing its type or unit, or
+  changing the meaning of a value requires `/api/v2`.
+- The bridge version (semver) is in `User-Agent`, `bridge_version` and `bridge.version`.
+- `features` lists what this bridge build implements. Endpoints of later milestones exist in every
+  build but answer `501 not_implemented` until their feature is listed:
+
+  | Feature | Endpoint / field | Milestone |
+  | --- | --- | --- |
+  | `status`, `vm`, `metrics` | `/status`, `/vm`, `/metrics` | 1 |
+  | `threads` | `GET /threads` | 2 |
+  | `histogram` | `GET /histogram` | 2 |
+  | `vm_flags` | `flags` in `/vm` | 2 |
+  | `live_heap` | `live_heap` in `/metrics?live=1` | 2 |
+  | `profiles` | `/profiles…` | 3 |
+
+## Endpoints
+
+| Method + path | Purpose | Cost for the server | Milestone |
+| --- | --- | --- | --- |
+| `GET /api/v1/status` | Bridge version, features (node level, no server) | none | 1 |
+| `GET /api/v1/servers/{uuid}/status` | Container running? Java found? PIDs, Java version, attach | none | 1 |
+| `GET /api/v1/servers/{uuid}/vm` | Java, start arguments, GC, container limits (+ `VM.flags`) | none (+ attach) | 1 (2) |
+| `GET /api/v1/servers/{uuid}/metrics` | Heap, GC, threads, classes, safepoints (+ live heap) | none (+ short safepoint) | 1 (2) |
+| `GET /api/v1/servers/{uuid}/threads` | Thread dump as JSON | short safepoint | 2 |
+| `GET /api/v1/servers/{uuid}/histogram` | Class histogram | **heap walk with a pause** (warn the user) | 2 |
+| `POST /api/v1/servers/{uuid}/profiles` | Start a profile | low | 3 |
+| `GET /api/v1/servers/{uuid}/profiles` | Profiles of the server (without results) | – | 3 |
+| `GET /api/v1/servers/{uuid}/profiles/{id}` | Status, result when done | – | 3 |
+| `DELETE /api/v1/servers/{uuid}/profiles/{id}` | Cancel / discard | – | 3 |
+
+### `GET /api/v1/status`
+
+Node level, for the bridge test button and detection. Same authentication. Example:
+[`node-status.json`](examples/node-status.json).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `bridge_version` | string | semver, e.g. `0.1.0` |
+| `api_version` | integer | `1` |
+| `features` | string[] | see [Versioning](#versioning) |
+| `started_at` | Unix ms | start of the bridge process |
+| `uptime_ms` | integer | uptime of the bridge |
+| `sampled_at` | Unix ms | clock of the node |
+| `tls` | bool | the bridge serves HTTPS |
+| `limits.max_concurrent_profiles` | integer | profiles at the same time on this node |
+| `limits.max_profile_seconds` | integer | upper bound of `seconds` in `POST /profiles` |
+
+### `GET /status`
+
+Always `200` as long as the container exists (also when it is stopped), so the panel can show the
+state. `404 server_not_found` otherwise. Reads only Docker, `/proc` and hsperfdata.
+
+Examples: [`status.json`](examples/status.json) (ready),
+[`status-not-running.json`](examples/status-not-running.json),
+[`status-no-java.json`](examples/status-no-java.json),
+[`status-hsperf-unavailable.json`](examples/status-hsperf-unavailable.json).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `state` | enum | `ready` · `server_not_running` · `no_java_process` · `hsperf_unavailable`: `ready` means `/vm` and `/metrics` will work; otherwise the error code they would return |
+| `bridge.version` | string | bridge version |
+| `bridge.api_version` | integer | `1` |
+| `bridge.features` | string[] | see [Versioning](#versioning) |
+| `server.uuid` | string | |
+| `server.container_state` | enum | Docker state: `created` · `running` · `paused` · `restarting` · `removing` · `exited` · `dead` |
+| `server.running` | bool | `container_state == "running"` (a paused container counts as not running) |
+| `server.started_at` | Unix ms, nullable | Docker `State.StartedAt` (last start, also for stopped containers); `null` if never started |
+| `java` | object, nullable | `null` unless running and a `java` process was found |
+| `java.host_pid` | integer | PID on the node |
+| `java.container_pid` | integer | PID inside the container (`NSpid`), e.g. `26` |
+| `java.user` | string, nullable | user of `/tmp/hsperfdata_<user>`, e.g. `container`; `null` without hsperfdata |
+| `java.hsperf_available` | bool | hsperfdata file found and readable |
+| `java.version` | string, nullable | `java.version`, e.g. `25.0.4.1` |
+| `java.vm_name` | string, nullable | e.g. `OpenJDK 64-Bit Server VM` |
+| `java.vm_vendor` | string, nullable | e.g. `Eclipse Adoptium` |
+| `java.started_at` | Unix ms, nullable | JVM start (`sun.rt.createVmBeginTime`) |
+| `java.uptime_ms` | integer, nullable | `sampled_at - java.started_at` |
+| `attach` | object, nullable | `null` when `java` is `null`; see [Attach](#attach-object) |
+| `sampled_at` | Unix ms | |
+
+#### Attach object
+
+Used in `/status` and `/vm`. Tells whether milestone-2/3 features (thread dump, histogram,
+`VM.flags`, live heap, profiles) can work for this JVM.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `supported` | bool, nullable | attach mechanism enabled (`sun.rt.jvmCapabilities`, first flag); `null` without hsperfdata |
+| `listener_running` | bool | the attach socket `/tmp/.java_pid<container_pid>` exists, no signal needed |
+| `available` | bool | the bridge would attach: `supported`, and either the listener runs or it may be started safely |
+| `reason` | enum, nullable | why not available, `null` if available: `disabled` (`-XX:+DisableAttachMechanism`) · `xrs` (`-Xrs`: the start signal `SIGQUIT` would **kill** the server, and the listener does not run yet) · `jvm_starting` (JVM younger than 30 s, listener not running; temporary) · `unknown` (no hsperfdata, cannot be checked safely) |
+
+### `GET /vm`
+
+JVM profile from hsperfdata plus Docker limits. No attach in milestone 1; with feature `vm_flags`
+the bridge additionally runs `VM.flags` via attach (fails soft: `flags` is `null`, `flags_error` set).
+
+Examples: [`vm.json`](examples/vm.json) (with `flags`, milestone 2),
+[`vm-without-flags.json`](examples/vm-without-flags.json) (milestone 1).
+Errors: `server_not_found`, `server_not_running`, `no_java_process`, `hsperf_unavailable`, `docker_unavailable`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sampled_at` | Unix ms | |
+| `java.version` | string, nullable | `java.version`, e.g. `25.0.4.1` |
+| `java.feature_version` | integer, nullable | `25` (`1.8.0_392` → `8`), for the Java/Minecraft version rule |
+| `java.vm_name` / `vm_vendor` / `vm_version` / `vm_info` | string, nullable | e.g. `OpenJDK 64-Bit Server VM`, `Eclipse Adoptium`, `25.0.4.1+1-LTS`, `mixed mode, sharing` |
+| `java.home` | string, nullable | e.g. `/opt/java/openjdk` |
+| `java.internal_version` | string, nullable | `sun.rt.internalVersion` |
+| `launch.vm_args` | string, nullable | **raw** `java.rt.vmArgs`, all JVM arguments joined by spaces, e.g. `-Xms128M -Xmx1907M` (can contain container paths) |
+| `launch.vm_flags` | string, nullable | `java.rt.vmFlags` (flags file), usually `""` |
+| `launch.java_command` | string, nullable | `sun.rt.javaCommand`, main class/jar and program arguments, e.g. `server.jar` |
+| `launch.class_path` | string, nullable | `java.class.path` |
+| `launch.started_at` | Unix ms, nullable | JVM start |
+| `launch.uptime_ms` | integer, nullable | |
+| `memory_settings.xms_bytes` | integer, nullable | from `-Xms` / `-XX:InitialHeapSize`, `null` if not set |
+| `memory_settings.xmx_bytes` | integer, nullable | from `-Xmx` / `-XX:MaxHeapSize`, `null` if not set (then the JVM takes `MaxRAMPercentage`, default 25 %, of the container limit) |
+| `memory_settings.xss_bytes` | integer, nullable | `-Xss` / `-XX:ThreadStackSize` |
+| `memory_settings.max_metaspace_bytes` | integer, nullable | `-XX:MaxMetaspaceSize` |
+| `memory_settings.max_ram_percentage` | number, nullable | `-XX:MaxRAMPercentage`, `null` if not set |
+| `memory_settings.initial_ram_percentage` | number, nullable | `-XX:InitialRAMPercentage` |
+| `memory_settings.explicit_gc` | enum, nullable | GC selected by a flag (`-XX:+UseG1GC` …): `serial` · `parallel` · `g1` · `zgc` · `shenandoah`; `null` = chosen by the JVM |
+| `memory_settings.xrs` | bool | `-Xrs` / `-XX:+ReduceSignalUsage` set |
+| `memory_settings.disable_attach` | bool | `-XX:+DisableAttachMechanism` set |
+| `gc.type` | enum | `serial` · `parallel` · `g1` · `zgc` · `shenandoah` · `unknown`, derived from the collector names (fallback `sun.gc.policy.name`) |
+| `gc.selected_by` | enum | `flag` (explicit) · `ergonomics` (the JVM chose it: Serial when it sees < 2 CPUs or < 1792 MB) |
+| `gc.policy` | string, nullable | `sun.gc.policy.name`, e.g. `Copy:MSC`; missing with ZGC/Shenandoah |
+| `gc.collectors[]` | array | see [Collector](#collector-object) (without counters) |
+| `heap_max_bytes` | integer | maximum heap, same as `heap.max_bytes` in `/metrics` |
+| `metaspace` | object, nullable | `used_bytes`, `committed_bytes`, `max_bytes`, `source` (`after_gc`), same as in `/metrics`, for the rule "Xmx + metaspace + overhead > limit" |
+| `attach` | object | see [Attach](#attach-object) |
+| `container.memory_limit_bytes` | integer, nullable | Docker `HostConfig.Memory` (hard limit incl. the Wings overhead), `null` = unlimited |
+| `container.memory_reservation_bytes` | integer, nullable | `HostConfig.MemoryReservation` = memory of the server in the panel |
+| `container.cpu_limit` | number, nullable | CPUs: `NanoCpus / 1e9` or `CpuQuota / CpuPeriod` (Wings: CPU % / 100), `null` = unlimited |
+| `container.cpu_quota_us` / `cpu_period_us` | integer, nullable | raw Docker values |
+| `container.cpuset_cpus` | string, nullable | `HostConfig.CpusetCpus`, e.g. `0-3` |
+| `container.cpuset_count` | integer, nullable | number of CPUs in `cpuset_cpus` |
+| `container.host_cpus` | integer | logical CPUs of the node |
+| `container.effective_cpus` | number | `min(cpu_limit, cpuset_count, host_cpus)`; what the JVM sees as available processors (rounded up) |
+| `container.tmpfs_size_bytes` | integer | size of the container's `/tmp` (Wings `docker.tmpfs_size`, default 100 MB) |
+| `flags` | map string → string, nullable | `VM.flags` (milestone 2): flag name → value as printed, booleans as `"true"`/`"false"`, e.g. `"MaxHeapSize": "1999634432"`, `"UseSerialGC": "true"` |
+| `flags_error` | error code, nullable | why `flags` is `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout`; `null` when `flags` is set |
+
+### `GET /metrics`
+
+Counters from hsperfdata; reading them costs the JVM nothing. Poll every 2–5 s. Counters are
+**cumulative since JVM start**; rates (e.g. GC time per minute) are the difference of two samples
+divided by the difference of `sampled_at` (or `uptime_ms`). If `uptime_ms` went down, the JVM restarted.
+
+Examples: [`metrics.json`](examples/metrics.json), [`metrics-live.json`](examples/metrics-live.json) (`?live=1`, milestone 2).
+Errors: as `/vm`.
+
+Query parameter `live=1` (milestone 2, feature `live_heap`): additionally runs `GC.heap_info` via
+attach (a short safepoint) and fills `live_heap`. Without it, `live_heap` and `live_heap_error` are `null`.
+
+**Used values are "after GC".** hsperfdata updates `used` only when a collection runs, so all values
+with `source: "after_gc"` are the state after the last GC (eden often shows 0). For the old generation
+this is exactly the value the diagnosis needs. Live values only come from `live_heap` (`source: "live"`).
+
+**Fill levels must be computed against `max_bytes`, not `committed_bytes`:** the JVM grows a
+generation only when needed (fixture: old gen 99.98 % of the committed 512356352 bytes, but only 38 % of the max 1333788672 bytes = 1272 MiB).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sampled_at` | Unix ms | |
+| `uptime_ms` | integer, nullable | JVM uptime |
+| `heap.used_bytes` | integer | sum of all spaces |
+| `heap.committed_bytes` | integer | sum of the generation capacities |
+| `heap.max_bytes` | integer | **Serial/Parallel: sum** of the generation maxima; **G1/ZGC/Shenandoah/unknown: maximum** (each generation reports the whole heap there). May differ from Xmx by alignment (fixture: 1908 MiB for `-Xmx1907M`) |
+| `heap.source` | enum | `after_gc` |
+| `generations[]` | array | in index order |
+| `generations[].index` | integer | hsperfdata index |
+| `generations[].name` | string | raw name: `new`, `old` (Serial/Parallel), `young`, `old` (G1, ZGC), `Young`, `Heap` (Shenandoah) |
+| `generations[].kind` | enum | `young` · `old` · `heap` · `unknown` |
+| `generations[].used_bytes` / `committed_bytes` / `max_bytes` | integer | used = sum of its spaces |
+| `generations[].source` | enum | `after_gc` |
+| `generations[].spaces[]` | array | `index`, `name` (`eden`, `s0`, `s1`, `old`, `space`, `Heap`), `used_bytes`, `committed_bytes`, `max_bytes`, `source` |
+| `metaspace` | object, nullable | `used_bytes`, `committed_bytes`, `max_bytes`, `source`; 0 until the first GC |
+| `class_space` | object, nullable | compressed class space, same fields; `null` without compressed class pointers |
+| `gc.type` | enum | as in `/vm` |
+| `gc.count` | integer | collections of all collectors |
+| `gc.time_ms` | number | time of all collectors |
+| `gc.last_cause` | string, nullable | e.g. `Allocation Failure`, `G1 Evacuation Pause` |
+| `gc.current_cause` | string, nullable | `No GC` unless a collection runs right now |
+| `gc.collectors[]` | array | see [Collector](#collector-object) |
+| `threads.live` / `daemon` / `peak` / `started` | integer | `java.threads.*` (`started` cumulative) |
+| `classes.loaded` / `unloaded` | integer | `java.cls.loadedClasses` / `unloadedClasses` (cumulative, without CDS classes) |
+| `classes.shared_loaded` / `shared_unloaded` | integer | the same for CDS (shared) classes |
+| `classes.current` | integer | currently loaded: `loaded + shared_loaded - unloaded - shared_unloaded` |
+| `safepoints.count` | integer | cumulative |
+| `safepoints.time_ms` | number | total time in safepoints (all threads stopped) |
+| `safepoints.sync_time_ms` | number | time to reach the safepoints |
+| `jit.compiles` / `time_ms` / `threads` | integer / number / integer | JIT compiler |
+| `live_heap` | object, nullable | milestone 2, only with `?live=1` |
+| `live_heap.sampled_at` | Unix ms | |
+| `live_heap.source` | enum | `live` |
+| `live_heap.used_bytes` | integer | current heap usage from `GC.heap_info` |
+| `live_heap.committed_bytes` | integer, nullable | |
+| `live_heap.max_bytes` | integer, nullable | only where `GC.heap_info` prints it (G1 reserved, ZGC, Shenandoah) |
+| `live_heap.raw` | string | the text of `GC.heap_info` |
+| `live_heap_error` | error code, nullable | with `?live=1` and `live_heap` `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` |
+
+#### Collector object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `index` | integer | hsperfdata index. **Indices can have gaps** (ZGC: `0` and `2`); never use them as array positions |
+| `name` | string | raw name, e.g. `Serial young collection pauses`, `G1 concurrent cycle pauses`, `ZGC major collection pauses`, `Shenandoah full`; older JDKs: `Copy`, `MSC`, `PSScavenge`, `G1 incremental collections` |
+| `kind` | enum | `young` · `old` (ZGC major) · `full` · `concurrent` · `unknown` |
+| `time_is_pause` | bool, nullable | `true` if `time_ms` measures stop-the-world pauses, `false` if it measures concurrent cycles, `null` if unknown (Shenandoah). For "GC share of runtime" sum only collectors with `true` |
+| `count` | integer | `/metrics` only: invocations, cumulative |
+| `time_ms` | number | `/metrics` only: cumulative time |
+| `last_started_uptime_ms` | number, nullable | `/metrics` only: start of the last collection, ms since JVM start; `null` if `count == 0` |
+| `last_started_at` | Unix ms, nullable | `/metrics` only: `java.started_at + last_started_uptime_ms` (approximate, the JVM clock starts with the VM) |
+| `last_duration_ms` | number, nullable | `/metrics` only: duration of the last collection |
+
+### `GET /threads`
+
+Milestone 2. `Thread.print -l` via attach, parsed. Causes a short safepoint.
+
+Example: [`threads.json`](examples/threads.json) (from `testdata/mpa-threads.txt`).
+Errors: as `/vm` plus `attach_unavailable`, `attach_failed`, `attach_timeout`, `output_too_large`, `not_implemented`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sampled_at` | Unix ms | |
+| `duration_ms` | number | time of the attach command |
+| `dumped_at_local` | string, nullable | timestamp printed by the JVM (`2026-10-25 13:09:43`, container time zone) |
+| `vm` | string, nullable | e.g. `OpenJDK 64-Bit Server VM (25.0.4.1+1-LTS mixed mode, sharing)` |
+| `summary.total` / `java` / `vm` / `daemon` | integer | thread counts (`vm` = VM-internal threads without Java id) |
+| `summary.by_state` | map state → integer | all six states always present: `NEW`, `RUNNABLE`, `BLOCKED`, `WAITING`, `TIMED_WAITING`, `TERMINATED` (Java threads only) |
+| `threads[]` | array | in dump order |
+| `threads[].name` | string | e.g. `Server thread` |
+| `threads[].java_id` | integer, nullable | `#30`; `null` for VM threads |
+| `threads[].os_id` | integer, nullable | native thread id (`nid`), matches `tid` in profiles |
+| `threads[].vm_thread` | bool | VM-internal thread (`VM Thread`, …): no Java id, no state, no stack |
+| `threads[].daemon` | bool | |
+| `threads[].priority` / `os_priority` | integer, nullable | |
+| `threads[].cpu_ms` | number, nullable | CPU time of the thread |
+| `threads[].elapsed_ms` | number, nullable | lifetime of the thread |
+| `threads[].state` | enum, nullable | `java.lang.Thread.State` line (**authoritative**): `NEW` · `RUNNABLE` · `BLOCKED` · `WAITING` · `TIMED_WAITING` · `TERMINATED`; `null` for VM threads |
+| `threads[].state_detail` | string, nullable | text in brackets: `parking`, `sleeping`, `on object monitor` |
+| `threads[].os_state` | string, nullable | text of the header line (`runnable`, `waiting on condition`, `in Object.wait()`, `waiting for monitor entry`); can contradict `state`, ignore it for filtering |
+| `threads[].stack[]` | array | top frame first |
+| `threads[].stack[].method` | string | `net.minecraft.server.MinecraftServer.waitForTasks` (dots, as printed) |
+| `threads[].stack[].module` | string, nullable | `java.base@25.0.4.1` for JDK frames |
+| `threads[].stack[].file` / `line` | string / integer, nullable | `MinecraftServer.java`, `870` |
+| `threads[].stack[].native` | bool | `Native Method` |
+| `threads[].stack[].locks[]` | array | lock lines below the frame, see [Lock](#lock-object) |
+| `threads[].locked_synchronizers[]` | array | `Locked ownable synchronizers`, see [Lock](#lock-object) (`type` = `owned`) |
+| `threads[].info[]` | string[] | other lines, e.g. `No compile task` |
+| `deadlocks[]` | array | one entry per `Found one Java-level deadlock` |
+| `deadlocks[].threads[]` | array | `name`, `waiting_for` (string, nullable, e.g. `waiting to lock monitor 0x… (object 0x…, a java.lang.Object)`), `held_by` (thread name, nullable) |
+| `jni_refs` | object, nullable | `global`, `weak` |
+| `raw` | string | complete dump text, for "copy" |
+
+#### Lock object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `type` | enum | `waiting_on` · `locked` · `parking` · `waiting_to_lock` · `waiting_to_relock` · `eliminated` · `owned` |
+| `address` | string, nullable | `0x00000000b82a7ff0` |
+| `class` | string, nullable | `java.lang.String` |
+
+### `GET /histogram`
+
+Milestone 2. `GC.class_histogram -all` via attach. **Walks the whole heap and pauses the server**
+(fixture: 150 MB heap); the panel must warn first. `-all` counts unreachable objects too.
+
+Example: [`histogram.json`](examples/histogram.json) (`?limit=100`, from the fixture).
+Errors: as `/threads`.
+
+Query parameter `limit` (integer 1–100000, default 2000): number of classes returned, largest
+`bytes` first. The rest is summed in `omitted`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sampled_at` | Unix ms | |
+| `duration_ms` | number | time of the command, upper bound of the pause |
+| `all` | bool | `true` (`-all`) |
+| `limit` | integer | effective limit |
+| `total.classes` / `instances` / `bytes` | integer | all classes (fixture: 16670 classes, 3594114 instances, 150843200 bytes) |
+| `omitted.classes` / `instances` / `bytes` | integer | classes beyond `limit` |
+| `classes[]` | array | sorted by `bytes` descending |
+| `classes[].rank` | integer | rank printed by the JVM |
+| `classes[].name` | string | JVM name as printed: `[B`, `[Ljava.lang.Object;`, `[[Lnet.minecraft…StateHolder;`, `net.minecraft…BlockState` |
+| `classes[].element_type` | string | for arrays the element type (`byte`, `java.lang.Object`, `net.minecraft…StateHolder`), else `name`; **use this for the mod mapping** |
+| `classes[].array_depth` | integer | `0` for non-arrays |
+| `classes[].module` | string, nullable | `java.base@25.0.4.1`, only for JDK classes |
+| `classes[].instances` / `bytes` | integer | |
+
+### Profiles
+
+Milestone 3. async-profiler, loaded into the JVM via attach. A profile runs in the background:
+start it, poll its state (every 1–2 s), fetch the result. One running profile per server,
+`max_concurrent_profiles` per node.
+
+Examples: [`profile-created.json`](examples/profile-created.json) (response of `POST`),
+[`profile-running.json`](examples/profile-running.json), [`profile-done.json`](examples/profile-done.json),
+[`profile-done-no-samples.json`](examples/profile-done-no-samples.json) (CPU mode on an idle/paused server),
+[`profile-failed.json`](examples/profile-failed.json), [`profiles.json`](examples/profiles.json) (list).
+The stacks in `profile-done.json` are **constructed** from the thread dump fixture (no recorded
+profile exists yet), the format is final.
+
+#### `POST /profiles`
+
+Body (JSON, unknown fields are rejected):
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `seconds` | integer, required | 1 – `max_profile_seconds` (default 120); the panel offers 10/30/60 |
+| `mode` | enum, optional | `wall` (default, tick analysis: every thread is sampled whether it runs or waits) · `cpu` (`itimer`, CPU time only) · `alloc` (allocations) |
+| `interval_ms` | integer, optional | `wall`: 1–1000, default 50; `cpu`: 1–1000, default 10; must be absent or `null` for `alloc` (fixed 512 KiB sampling interval) |
+
+Response `202 Accepted` with the profile object (`state` `running`) and header
+`Location: /api/v1/servers/{uuid}/profiles/{id}`. The profiler is already running when the response
+arrives; failures to start are returned right away as errors.
+
+Errors: `invalid_request` (400), `profile_running` (409, `details.profile_id`), `too_many_profiles`
+(429, `details.limit`), `attach_unavailable`, `attach_failed`, `attach_timeout`,
+`insufficient_tmp_space` (507, `details.free_bytes`, `details.required_bytes`), plus the server errors of `/vm`.
+
+#### `GET /profiles`
+
+`{"profiles": [ … ]}`: all profiles of the server the bridge still knows (running and unexpired
+finished ones), newest first, **without** `result` (always `null` here).
+
+#### `GET /profiles/{id}`
+
+`{id}` is 16 lowercase hex characters. The profile object; `404 profile_not_found` if unknown,
+deleted or expired.
+
+#### `DELETE /profiles/{id}`
+
+Running: stops the profiler and removes its files from the container's `/tmp`. Finished: discards the
+result. `204 No Content` on success, `404 profile_not_found` otherwise.
+
+#### Profile object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | string | 16 hex characters |
+| `server_uuid` | string | |
+| `mode` | enum | `wall` · `cpu` · `alloc` |
+| `seconds` | integer | requested duration |
+| `interval_ms` | integer, nullable | sampling interval (`wall`, `cpu`); `null` for `alloc` |
+| `alloc_interval_bytes` | integer, nullable | `alloc` only (524288) |
+| `state` | enum | `running` → `processing` (stopping, parsing; usually < 1 s) → `done` or `failed` |
+| `started_at` | Unix ms | |
+| `ends_at` | Unix ms | planned end (`started_at + seconds`) |
+| `finished_at` | Unix ms, nullable | when `done`/`failed` was reached |
+| `elapsed_ms` | integer | since `started_at` (until `finished_at`) |
+| `progress` | number | 0–1 (`elapsed_ms / (seconds·1000)`, capped at 1) |
+| `expires_at` | Unix ms, nullable | finished profiles are kept 15 minutes, then 404; `null` while running. The panel stores results itself |
+| `error` | error object, nullable | `failed` only: same shape as [error responses](#errors), e.g. `server_not_running` if the server stopped |
+| `result` | object, nullable | `done` only, see below |
+
+#### Profile result
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `duration_ms` | number | actual profiling time |
+| `unit` | enum | `samples` (`wall`, `cpu`: **time = `count` × `interval_ms`**) · `bytes` (`alloc`: `count` = allocated bytes) |
+| `interval_ms` | integer, nullable | same as in the profile object, repeated so the result is self-contained |
+| `total` | integer | sum of `count` over all threads |
+| `warnings[]` | enum[] | `no_samples` (nothing recorded; with `cpu` typical for an idle or paused server, e.g. `pause-when-empty-seconds`) · `server_thread_missing` (no thread named `Server thread`) · `truncated` (output exceeded the size limit, smallest stacks dropped) |
+| `threads[]` | array | **one entry per thread**, sorted by `count` descending |
+| `threads[].name` | string | thread name, e.g. `Server thread` (`""` if the profiler recorded no thread) |
+| `threads[].tid` | integer, nullable | native thread id, matches `os_id` in `/threads` |
+| `threads[].count` | integer | samples (or bytes) of this thread |
+| `threads[].stacks[]` | array | sorted by `count` descending |
+| `threads[].stacks[].stack` | string | collapsed stack **root first**, frames separated by `;`, without the thread frame. Java frames in JVM form with slashes (`net/minecraft/server/MinecraftServer.waitUntilNextTick`, lambdas `…$$Lambda.0x….run`), native and JVM frames as async-profiler names them (`Parker::park(bool, long)`, `__pthread_cond_timedwait`, `epoll_wait`) |
+| `threads[].stacks[].count` | integer | |
+| `gc.count` / `time_ms` | integer / number | collections and their time during the profile (delta of the counters) |
+| `gc.collectors[]` | array | [Collector](#collector-object) `index`, `name`, `kind`, `time_is_pause`, `count`, `time_ms` (deltas), all collectors |
+| `gc.pauses[]` | array | individual collections observed by polling hsperfdata: `collector_index`, `kind`, `start_offset_ms` (from `started_at`), `duration_ms` |
+| `gc.pauses_complete` | bool | `false` if collections happened faster than the bridge could observe them; `gc.count` is exact anyway |
+| `safepoints.count` / `time_ms` | integer / number | safepoints during the profile |
+| `cpu.process_ms` | number | CPU time of the Java process during the profile |
+| `cpu.process_percent` | number | `process_ms / duration_ms · 100` (one core = 100) |
+
+Idle detection is up to the panel: with `wall` the `Server thread` is sampled every interval;
+frames below `MinecraftServer.waitUntilNextTick` / `waitForTasks` are idle time between ticks.
+
+## Errors
+
+Every error has this body (example: [`error-server-not-running.json`](examples/error-server-not-running.json)):
+
+```json
+{"error": "server_not_running", "message": "The server container is not running.", "details": {"container_state": "exited"}}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `error` | string | code from the table below; **clients switch on this** |
+| `message` | string | English text for logs, may change |
+| `details` | object, nullable | code-specific fields listed below, else `null` |
+
+| HTTP | `error` | When | `details` |
+| --- | --- | --- | --- |
+| 400 | `invalid_request` | malformed UUID or profile id, bad query parameter, invalid JSON body or field | `field`, `reason` |
+| 401 | `unauthorized` | `Authorization` header missing, not `Bearer`, or wrong token | – |
+| 403 | `ip_not_allowed` | client IP not in `allowed_ips` | – |
+| 404 | `not_found` | unknown path | – |
+| 405 | `method_not_allowed` | known path, wrong method (`Allow` header set) | – |
+| 404 | `server_not_found` | no container with this name, or not a Pelican server container (labels) | – |
+| 409 | `server_not_running` | container not in state `running` (also `paused`) | `container_state` |
+| 409 | `no_java_process` | container runs, but no `java` process | – |
+| 409 | `hsperf_unavailable` | Java runs but has no readable hsperfdata (`-XX:-UsePerfData`, `-XX:+PerfDisableSharedMem`, JVM still starting) | – |
+| 409 | `attach_unavailable` | attach not possible, see [Attach](#attach-object) | `reason` |
+| 502 | `attach_failed` | attach protocol error or the command failed | – |
+| 504 | `attach_timeout` | the JVM did not answer in time | – |
+| 502 | `output_too_large` | the JVM output exceeds the size limit | – |
+| 409 | `profile_running` | a profile is already running for this server | `profile_id` |
+| 429 | `too_many_profiles` | `max_concurrent_profiles` reached on this node | `limit` |
+| 404 | `profile_not_found` | unknown, deleted or expired profile id | – |
+| 507 | `insufficient_tmp_space` | not enough free space in the container's `/tmp` for the profiler | `free_bytes`, `required_bytes` |
+| 501 | `not_implemented` | endpoint of a later milestone, see `features` | – |
+| 503 | `docker_unavailable` | Docker API not reachable | – |
+| 500 | `internal_error` | anything else | – |
+
+`server_not_found` and `not_found` share 404; distinguish them by `error`. Every error code has an
+example `examples/error-<code>.json` (underscores replaced by dashes).
+
+## Examples
+
+Fixed inputs (not from the fixtures): server UUID `1a7ce997-259b-452e-8b4e-cecc464142ca`, host PIDs,
+all timestamps, the bridge start, the container limits (Wings: server memory 1907 MB × overhead
+1.15 = 2299579597 bytes ≈ 2.142 GiB, CPU limit 100 % = 1 CPU), host CPUs 24.
+Illustrative (format final, values plausible but not recorded): `flags` in `vm.json`,
+`live_heap` in `metrics-live.json`, the stacks and GC/CPU numbers of the profile examples.
+Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms128M -Xmx1907M`).
+
+| File | Endpoint / state |
+| --- | --- |
+| `node-status.json` | `GET /api/v1/status` |
+| `status.json` | `GET /status`, ready |
+| `status-not-running.json` | `GET /status`, container stopped |
+| `status-no-java.json` | `GET /status`, no Java process |
+| `status-hsperf-unavailable.json` | `GET /status`, Java without hsperfdata |
+| `vm.json` | `GET /vm` with `VM.flags` (milestone 2) |
+| `vm-without-flags.json` | `GET /vm` in milestone 1 (`flags_error: not_implemented`) |
+| `metrics.json` | `GET /metrics` |
+| `metrics-live.json` | `GET /metrics?live=1` (milestone 2) |
+| `threads.json` | `GET /threads` |
+| `histogram.json` | `GET /histogram?limit=100` |
+| `profile-created.json` | `POST /profiles` (202) |
+| `profile-running.json` | `GET /profiles/{id}`, running |
+| `profile-done.json` | `GET /profiles/{id}`, done (`wall`, 10 s) |
+| `profile-done-no-samples.json` | `GET /profiles/{id}`, done (`cpu`, nothing sampled) |
+| `profile-failed.json` | `GET /profiles/{id}`, failed |
+| `profiles.json` | `GET /profiles` |
+| `error-*.json` | one per error code |

@@ -1,0 +1,21 @@
+{
+  "profiles": [
+    {
+      "id": "c0f3e1a2b4d59687",
+      "server_uuid": "1a7ce997-259b-452e-8b4e-cecc464142ca",
+      "mode": "wall",
+      "seconds": 10,
+      "interval_ms": 50,
+      "alloc_interval_bytes": null,
+      "state": "running",
+      "started_at": 1792930250000,
+      "ends_at": 1792930260000,
+      "finished_at": null,
+      "elapsed_ms": 4210,
+      "progress": 0.421,
+      "expires_at": null,
+      "error": null,
+      "result": null
+    }
+  ]
+}

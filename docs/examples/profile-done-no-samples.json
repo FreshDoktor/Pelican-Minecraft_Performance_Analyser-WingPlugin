@@ -1,0 +1,58 @@
+{
+  "id": "c0f3e1a2b4d59687",
+  "server_uuid": "1a7ce997-259b-452e-8b4e-cecc464142ca",
+  "mode": "cpu",
+  "seconds": 10,
+  "interval_ms": 10,
+  "alloc_interval_bytes": null,
+  "state": "done",
+  "started_at": 1792930250000,
+  "ends_at": 1792930260000,
+  "finished_at": 1792930260204,
+  "elapsed_ms": 10204,
+  "progress": 1,
+  "expires_at": 1792931160204,
+  "error": null,
+  "result": {
+    "duration_ms": 10001.932,
+    "unit": "samples",
+    "interval_ms": 10,
+    "total": 0,
+    "warnings": [
+      "no_samples"
+    ],
+    "threads": [],
+    "gc": {
+      "count": 0,
+      "time_ms": 0,
+      "collectors": [
+        {
+          "index": 0,
+          "name": "Serial young collection pauses",
+          "kind": "young",
+          "time_is_pause": true,
+          "count": 0,
+          "time_ms": 0
+        },
+        {
+          "index": 1,
+          "name": "Serial full collection pauses",
+          "kind": "full",
+          "time_is_pause": true,
+          "count": 0,
+          "time_ms": 0
+        }
+      ],
+      "pauses": [],
+      "pauses_complete": true
+    },
+    "safepoints": {
+      "count": 0,
+      "time_ms": 0
+    },
+    "cpu": {
+      "process_ms": 7,
+      "process_percent": 0.07
+    }
+  }
+}

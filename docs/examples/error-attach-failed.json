@@ -1,0 +1,5 @@
+{
+  "error": "attach_failed",
+  "message": "The JVM rejected or failed the command.",
+  "details": null
+}

@@ -1,0 +1,141 @@
+{
+  "sampled_at": 1792929810000,
+  "uptime_ms": 63214288,
+  "heap": {
+    "used_bytes": 517275200,
+    "committed_bytes": 622325760,
+    "max_bytes": 2000683008,
+    "source": "after_gc"
+  },
+  "generations": [
+    {
+      "index": 0,
+      "name": "new",
+      "kind": "young",
+      "used_bytes": 5038192,
+      "committed_bytes": 109969408,
+      "max_bytes": 666894336,
+      "source": "after_gc",
+      "spaces": [
+        {
+          "index": 0,
+          "name": "eden",
+          "used_bytes": 0,
+          "committed_bytes": 88080384,
+          "max_bytes": 533594112,
+          "source": "after_gc"
+        },
+        {
+          "index": 1,
+          "name": "s0",
+          "used_bytes": 5038192,
+          "committed_bytes": 10944512,
+          "max_bytes": 66650112,
+          "source": "after_gc"
+        },
+        {
+          "index": 2,
+          "name": "s1",
+          "used_bytes": 0,
+          "committed_bytes": 10944512,
+          "max_bytes": 66650112,
+          "source": "after_gc"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "name": "old",
+      "kind": "old",
+      "used_bytes": 512237008,
+      "committed_bytes": 512356352,
+      "max_bytes": 1333788672,
+      "source": "after_gc",
+      "spaces": [
+        {
+          "index": 0,
+          "name": "old",
+          "used_bytes": 512237008,
+          "committed_bytes": 512356352,
+          "max_bytes": 1333788672,
+          "source": "after_gc"
+        }
+      ]
+    }
+  ],
+  "metaspace": {
+    "used_bytes": 114990256,
+    "committed_bytes": 116064256,
+    "max_bytes": 1207959552,
+    "source": "after_gc"
+  },
+  "class_space": {
+    "used_bytes": 19209600,
+    "committed_bytes": 19660800,
+    "max_bytes": 1073741824,
+    "source": "after_gc"
+  },
+  "gc": {
+    "type": "serial",
+    "count": 120,
+    "time_ms": 3227.001,
+    "last_cause": "Allocation Failure",
+    "current_cause": "No GC",
+    "collectors": [
+      {
+        "index": 0,
+        "name": "Serial young collection pauses",
+        "kind": "young",
+        "time_is_pause": true,
+        "count": 116,
+        "time_ms": 2700.557,
+        "last_started_uptime_ms": 62169801.382,
+        "last_started_at": 1792928765513,
+        "last_duration_ms": 20.052
+      },
+      {
+        "index": 1,
+        "name": "Serial full collection pauses",
+        "kind": "full",
+        "time_is_pause": true,
+        "count": 4,
+        "time_ms": 526.444,
+        "last_started_uptime_ms": 63872.905,
+        "last_started_at": 1792866659585,
+        "last_duration_ms": 229.618
+      }
+    ]
+  },
+  "threads": {
+    "live": 16,
+    "daemon": 13,
+    "peak": 23,
+    "started": 49
+  },
+  "classes": {
+    "loaded": 26618,
+    "unloaded": 7,
+    "shared_loaded": 1453,
+    "shared_unloaded": 0,
+    "current": 28064
+  },
+  "safepoints": {
+    "count": 123,
+    "time_ms": 3232.76,
+    "sync_time_ms": 3.329
+  },
+  "jit": {
+    "compiles": 25732,
+    "time_ms": 62671.688,
+    "threads": 2
+  },
+  "live_heap": {
+    "sampled_at": 1792929810000,
+    "source": "live",
+    "used_bytes": 559468544,
+    "committed_bytes": 611381248,
+    "max_bytes": null,
+    "raw": "DefNew     total 96704K, used 46125K [0x0000000088c00000, 0x000000008f2f0000, 0x00000000b0a00000)\n eden space 86016K,  41% used [0x0000000088c00000, 0x000000008b4d4f10, 0x000000008e000000)\n from space 10688K,  46% used [0x000000008e000000, 0x000000008e4ce070, 0x000000008ea70000)\n to   space 10688K,   0% used [0x000000008ea70000, 0x000000008ea70000, 0x000000008f4e0000)\nTenured    total 500348K, used 500231K [0x00000000b0a00000, 0x00000000cf2df000, 0x0000000100000000)\n the  space 500348K,  99% used [0x00000000b0a00000, 0x00000000cf2c1bd0, 0x00000000cf2df000)\n"
+  },
+  "live_heap_error": null
+}

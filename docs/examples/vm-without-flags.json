@@ -1,0 +1,78 @@
+{
+  "sampled_at": 1792929810000,
+  "java": {
+    "version": "25.0.4.1",
+    "feature_version": 25,
+    "vm_name": "OpenJDK 64-Bit Server VM",
+    "vm_vendor": "Eclipse Adoptium",
+    "vm_version": "25.0.4.1+1-LTS",
+    "vm_info": "mixed mode, sharing",
+    "home": "/opt/java/openjdk",
+    "internal_version": "OpenJDK 64-Bit Server VM (25.0.4.1+1-LTS) for linux-amd64 JRE (25.0.4.1+1-LTS), built on 2026-08-18T00:00:00Z with gcc 14.2.0"
+  },
+  "launch": {
+    "vm_args": "-Xms128M -Xmx1907M",
+    "vm_flags": "",
+    "java_command": "server.jar",
+    "class_path": "server.jar",
+    "started_at": 1792866595712,
+    "uptime_ms": 63214288
+  },
+  "memory_settings": {
+    "xms_bytes": 134217728,
+    "xmx_bytes": 1999634432,
+    "xss_bytes": null,
+    "max_metaspace_bytes": null,
+    "max_ram_percentage": null,
+    "initial_ram_percentage": null,
+    "explicit_gc": null,
+    "xrs": false,
+    "disable_attach": false
+  },
+  "gc": {
+    "type": "serial",
+    "selected_by": "ergonomics",
+    "policy": "Copy:MSC",
+    "collectors": [
+      {
+        "index": 0,
+        "name": "Serial young collection pauses",
+        "kind": "young",
+        "time_is_pause": true
+      },
+      {
+        "index": 1,
+        "name": "Serial full collection pauses",
+        "kind": "full",
+        "time_is_pause": true
+      }
+    ]
+  },
+  "heap_max_bytes": 2000683008,
+  "metaspace": {
+    "used_bytes": 114990256,
+    "committed_bytes": 116064256,
+    "max_bytes": 1207959552,
+    "source": "after_gc"
+  },
+  "attach": {
+    "supported": true,
+    "listener_running": true,
+    "available": true,
+    "reason": null
+  },
+  "container": {
+    "memory_limit_bytes": 2299579597,
+    "memory_reservation_bytes": 1999634432,
+    "cpu_limit": 1,
+    "cpu_quota_us": 100000,
+    "cpu_period_us": 100000,
+    "cpuset_cpus": null,
+    "cpuset_count": null,
+    "host_cpus": 24,
+    "effective_cpus": 1,
+    "tmpfs_size_bytes": 104857600
+  },
+  "flags": null,
+  "flags_error": "not_implemented"
+}

@@ -1,0 +1,8 @@
+{
+  "error": "invalid_request",
+  "message": "The request is invalid.",
+  "details": {
+    "field": "seconds",
+    "reason": "must be between 1 and 120"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "error": "too_many_profiles",
+  "message": "Too many profiles are running on this node.",
+  "details": {
+    "limit": 2
+  }
+}

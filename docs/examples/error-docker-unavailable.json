@@ -1,0 +1,5 @@
+{
+  "error": "docker_unavailable",
+  "message": "The Docker API is not reachable.",
+  "details": null
+}

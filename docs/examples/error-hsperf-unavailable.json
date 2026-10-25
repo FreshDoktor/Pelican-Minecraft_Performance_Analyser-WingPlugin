@@ -1,0 +1,5 @@
+{
+  "error": "hsperf_unavailable",
+  "message": "The JVM publishes no performance data (hsperfdata).",
+  "details": null
+}

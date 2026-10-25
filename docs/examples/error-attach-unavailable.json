@@ -1,0 +1,7 @@
+{
+  "error": "attach_unavailable",
+  "message": "The bridge cannot attach to this JVM.",
+  "details": {
+    "reason": "xrs"
+  }
+}

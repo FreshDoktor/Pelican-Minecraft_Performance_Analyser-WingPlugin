@@ -1,0 +1,5 @@
+{
+  "error": "unauthorized",
+  "message": "Missing or invalid bearer token.",
+  "details": null
+}

@@ -1,0 +1,8 @@
+{
+  "error": "insufficient_tmp_space",
+  "message": "Not enough free space in the container's /tmp.",
+  "details": {
+    "free_bytes": 1048576,
+    "required_bytes": 8388608
+  }
+}

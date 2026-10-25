@@ -1,0 +1,7 @@
+{
+  "error": "server_not_running",
+  "message": "The server container is not running.",
+  "details": {
+    "container_state": "exited"
+  }
+}

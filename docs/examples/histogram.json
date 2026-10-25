@@ -1,0 +1,918 @@
+{
+  "sampled_at": 1792930190871,
+  "duration_ms": 187.316,
+  "all": true,
+  "limit": 100,
+  "total": {
+    "classes": 16670,
+    "instances": 3594114,
+    "bytes": 150843200
+  },
+  "omitted": {
+    "classes": 16570,
+    "instances": 732204,
+    "bytes": 18776752
+  },
+  "classes": [
+    {
+      "rank": 1,
+      "name": "[B",
+      "element_type": "byte",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 247069,
+      "bytes": 32965352
+    },
+    {
+      "rank": 2,
+      "name": "[Ljava.lang.Object;",
+      "element_type": "java.lang.Object",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 102042,
+      "bytes": 8625920
+    },
+    {
+      "rank": 3,
+      "name": "java.util.HashMap$Node",
+      "element_type": "java.util.HashMap$Node",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 171534,
+      "bytes": 5489088
+    },
+    {
+      "rank": 4,
+      "name": "java.lang.String",
+      "element_type": "java.lang.String",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 222268,
+      "bytes": 5334432
+    },
+    {
+      "rank": 5,
+      "name": "net.minecraft.world.level.block.state.BlockState",
+      "element_type": "net.minecraft.world.level.block.state.BlockState",
+      "array_depth": 0,
+      "module": null,
+      "instances": 35723,
+      "bytes": 3715192
+    },
+    {
+      "rank": 6,
+      "name": "[Ljava.util.HashMap$Node;",
+      "element_type": "java.util.HashMap$Node",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 49329,
+      "bytes": 3287928
+    },
+    {
+      "rank": 7,
+      "name": "java.lang.Class",
+      "element_type": "java.lang.Class",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 25978,
+      "bytes": 3276232
+    },
+    {
+      "rank": 8,
+      "name": "[Ljdk.internal.vm.FillerElement;",
+      "element_type": "jdk.internal.vm.FillerElement",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 33,
+      "bytes": 3130936
+    },
+    {
+      "rank": 9,
+      "name": "java.util.LinkedHashMap",
+      "element_type": "java.util.LinkedHashMap",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 46504,
+      "bytes": 2976256
+    },
+    {
+      "rank": 10,
+      "name": "net.minecraft.world.phys.shapes.SubShape",
+      "element_type": "net.minecraft.world.phys.shapes.SubShape",
+      "array_depth": 0,
+      "module": null,
+      "instances": 48198,
+      "bytes": 2699088
+    },
+    {
+      "rank": 11,
+      "name": "java.util.LinkedHashMap$Entry",
+      "element_type": "java.util.LinkedHashMap$Entry",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 65933,
+      "bytes": 2637320
+    },
+    {
+      "rank": 12,
+      "name": "[J",
+      "element_type": "long",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 34646,
+      "bytes": 2160280
+    },
+    {
+      "rank": 13,
+      "name": "[D",
+      "element_type": "double",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 38140,
+      "bytes": 1971584
+    },
+    {
+      "rank": 14,
+      "name": "java.util.concurrent.ConcurrentHashMap$Node",
+      "element_type": "java.util.concurrent.ConcurrentHashMap$Node",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 58009,
+      "bytes": 1856288
+    },
+    {
+      "rank": 15,
+      "name": "[I",
+      "element_type": "int",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 8550,
+      "bytes": 1707592
+    },
+    {
+      "rank": 16,
+      "name": "[Lnet.minecraft.world.level.block.state.StateHolder;",
+      "element_type": "net.minecraft.world.level.block.state.StateHolder",
+      "array_depth": 1,
+      "module": null,
+      "instances": 61000,
+      "bytes": 1682648
+    },
+    {
+      "rank": 17,
+      "name": "net.minecraft.world.phys.shapes.SliceShape",
+      "element_type": "net.minecraft.world.phys.shapes.SliceShape",
+      "array_depth": 0,
+      "module": null,
+      "instances": 48198,
+      "bytes": 1542336
+    },
+    {
+      "rank": 18,
+      "name": "it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap",
+      "element_type": "it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap",
+      "array_depth": 0,
+      "module": null,
+      "instances": 38099,
+      "bytes": 1523960
+    },
+    {
+      "rank": 19,
+      "name": "[Z",
+      "element_type": "boolean",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 35747,
+      "bytes": 1446344
+    },
+    {
+      "rank": 20,
+      "name": "com.mojang.datafixers.types.templates.Product$ProductType",
+      "element_type": "com.mojang.datafixers.types.templates.Product$ProductType",
+      "array_depth": 0,
+      "module": null,
+      "instances": 42436,
+      "bytes": 1357952
+    },
+    {
+      "rank": 21,
+      "name": "[Lnet.minecraft.world.phys.shapes.VoxelShape;",
+      "element_type": "net.minecraft.world.phys.shapes.VoxelShape",
+      "array_depth": 1,
+      "module": null,
+      "instances": 32836,
+      "bytes": 1313464
+    },
+    {
+      "rank": 22,
+      "name": "com.mojang.datafixers.types.templates.Sum$SumType",
+      "element_type": "com.mojang.datafixers.types.templates.Sum$SumType",
+      "array_depth": 0,
+      "module": null,
+      "instances": 39546,
+      "bytes": 1265472
+    },
+    {
+      "rank": 23,
+      "name": "[Ljava.lang.Comparable;",
+      "element_type": "java.lang.Comparable",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 35358,
+      "bytes": 1249096
+    },
+    {
+      "rank": 24,
+      "name": "[[Lnet.minecraft.world.level.block.state.StateHolder;",
+      "element_type": "net.minecraft.world.level.block.state.StateHolder",
+      "array_depth": 2,
+      "module": null,
+      "instances": 34376,
+      "bytes": 1225528
+    },
+    {
+      "rank": 25,
+      "name": "com.mojang.brigadier.context.CommandContext",
+      "element_type": "com.mojang.brigadier.context.CommandContext",
+      "array_depth": 0,
+      "module": null,
+      "instances": 21648,
+      "bytes": 1212288
+    },
+    {
+      "rank": 26,
+      "name": "com.mojang.datafixers.types.templates.Tag$TagType",
+      "element_type": "com.mojang.datafixers.types.templates.Tag$TagType",
+      "array_depth": 0,
+      "module": null,
+      "instances": 36691,
+      "bytes": 1174112
+    },
+    {
+      "rank": 27,
+      "name": "java.util.ImmutableCollections$List12",
+      "element_type": "java.util.ImmutableCollections$List12",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 42722,
+      "bytes": 1025328
+    },
+    {
+      "rank": 28,
+      "name": "java.util.ArrayList",
+      "element_type": "java.util.ArrayList",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 42201,
+      "bytes": 1012824
+    },
+    {
+      "rank": 29,
+      "name": "it.unimi.dsi.fastutil.doubles.DoubleArrayList",
+      "element_type": "it.unimi.dsi.fastutil.doubles.DoubleArrayList",
+      "array_depth": 0,
+      "module": null,
+      "instances": 38127,
+      "bytes": 915048
+    },
+    {
+      "rank": 30,
+      "name": "java.lang.invoke.MemberName",
+      "element_type": "java.lang.invoke.MemberName",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 18340,
+      "bytes": 880320
+    },
+    {
+      "rank": 31,
+      "name": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase$Cache",
+      "element_type": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase$Cache",
+      "array_depth": 0,
+      "module": null,
+      "instances": 35524,
+      "bytes": 852576
+    },
+    {
+      "rank": 32,
+      "name": "net.minecraft.commands.execution.CommandQueueEntry",
+      "element_type": "net.minecraft.commands.execution.CommandQueueEntry",
+      "array_depth": 0,
+      "module": null,
+      "instances": 34013,
+      "bytes": 816312
+    },
+    {
+      "rank": 33,
+      "name": "com.mojang.datafixers.types.templates.Named$NamedType",
+      "element_type": "com.mojang.datafixers.types.templates.Named$NamedType",
+      "array_depth": 0,
+      "module": null,
+      "instances": 25198,
+      "bytes": 806336
+    },
+    {
+      "rank": 34,
+      "name": "java.util.Optional",
+      "element_type": "java.util.Optional",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 48104,
+      "bytes": 769664
+    },
+    {
+      "rank": 35,
+      "name": "java.util.BitSet",
+      "element_type": "java.util.BitSet",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 31324,
+      "bytes": 751776
+    },
+    {
+      "rank": 36,
+      "name": "net.minecraft.commands.execution.UnboundEntryAction$$Lambda/0x0000000011089eb0",
+      "element_type": "net.minecraft.commands.execution.UnboundEntryAction$$Lambda/0x0000000011089eb0",
+      "array_depth": 0,
+      "module": null,
+      "instances": 31003,
+      "bytes": 744072
+    },
+    {
+      "rank": 37,
+      "name": "com.mojang.datafixers.TypeRewriteRule$Everywhere",
+      "element_type": "com.mojang.datafixers.TypeRewriteRule$Everywhere",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23209,
+      "bytes": 742688
+    },
+    {
+      "rank": 38,
+      "name": "com.mojang.datafixers.types.Func",
+      "element_type": "com.mojang.datafixers.types.Func",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23205,
+      "bytes": 742560
+    },
+    {
+      "rank": 39,
+      "name": "jdk.nio.zipfs.ZipFileSystem$IndexNode",
+      "element_type": "jdk.nio.zipfs.ZipFileSystem$IndexNode",
+      "array_depth": 0,
+      "module": "jdk.zipfs@25.0.4.1",
+      "instances": 18560,
+      "bytes": 742400
+    },
+    {
+      "rank": 40,
+      "name": "net.minecraft.world.level.biome.Climate$Parameter",
+      "element_type": "net.minecraft.world.level.biome.Climate$Parameter",
+      "array_depth": 0,
+      "module": null,
+      "instances": 20946,
+      "bytes": 670272
+    },
+    {
+      "rank": 41,
+      "name": "java.util.ArrayList$Itr",
+      "element_type": "java.util.ArrayList$Itr",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 20118,
+      "bytes": 643776
+    },
+    {
+      "rank": 42,
+      "name": "net.minecraft.world.phys.shapes.BitSetDiscreteVoxelShape",
+      "element_type": "net.minecraft.world.phys.shapes.BitSetDiscreteVoxelShape",
+      "array_depth": 0,
+      "module": null,
+      "instances": 11243,
+      "bytes": 629608
+    },
+    {
+      "rank": 43,
+      "name": "java.util.Hashtable$Entry",
+      "element_type": "java.util.Hashtable$Entry",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 19284,
+      "bytes": 617088
+    },
+    {
+      "rank": 44,
+      "name": "java.util.jar.Attributes",
+      "element_type": "java.util.jar.Attributes",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 37804,
+      "bytes": 604864
+    },
+    {
+      "rank": 45,
+      "name": "com.mojang.datafixers.types.templates.Const",
+      "element_type": "com.mojang.datafixers.types.templates.Const",
+      "array_depth": 0,
+      "module": null,
+      "instances": 37223,
+      "bytes": 595568
+    },
+    {
+      "rank": 46,
+      "name": "net.minecraft.core.Holder$Reference",
+      "element_type": "net.minecraft.core.Holder$Reference",
+      "array_depth": 0,
+      "module": null,
+      "instances": 14538,
+      "bytes": 581520
+    },
+    {
+      "rank": 47,
+      "name": "com.mojang.datafixers.RewriteResult",
+      "element_type": "com.mojang.datafixers.RewriteResult",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23543,
+      "bytes": 565032
+    },
+    {
+      "rank": 48,
+      "name": "com.mojang.datafixers.TypeRewriteRule$Seq",
+      "element_type": "com.mojang.datafixers.TypeRewriteRule$Seq",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23189,
+      "bytes": 556536
+    },
+    {
+      "rank": 49,
+      "name": "com.mojang.datafixers.types.Type$RewriteCacheKey",
+      "element_type": "com.mojang.datafixers.types.Type$RewriteCacheKey",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23184,
+      "bytes": 556416
+    },
+    {
+      "rank": 50,
+      "name": "com.mojang.datafixers.TypeRewriteRule$All",
+      "element_type": "com.mojang.datafixers.TypeRewriteRule$All",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23181,
+      "bytes": 556344
+    },
+    {
+      "rank": 51,
+      "name": "com.mojang.datafixers.TypeRewriteRule$OrElse",
+      "element_type": "com.mojang.datafixers.TypeRewriteRule$OrElse",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23181,
+      "bytes": 556344
+    },
+    {
+      "rank": 52,
+      "name": "com.mojang.datafixers.functions.Id",
+      "element_type": "com.mojang.datafixers.functions.Id",
+      "array_depth": 0,
+      "module": null,
+      "instances": 22411,
+      "bytes": 537864
+    },
+    {
+      "rank": 53,
+      "name": "java.util.ImmutableCollections$ListItr",
+      "element_type": "java.util.ImmutableCollections$ListItr",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 16738,
+      "bytes": 535616
+    },
+    {
+      "rank": 54,
+      "name": "net.minecraft.resources.Identifier",
+      "element_type": "net.minecraft.resources.Identifier",
+      "array_depth": 0,
+      "module": null,
+      "instances": 20881,
+      "bytes": 501144
+    },
+    {
+      "rank": 55,
+      "name": "java.lang.invoke.MethodType",
+      "element_type": "java.lang.invoke.MethodType",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 11973,
+      "bytes": 478920
+    },
+    {
+      "rank": 56,
+      "name": "com.google.common.collect.MapMakerInternalMap$WeakValueReferenceImpl",
+      "element_type": "com.google.common.collect.MapMakerInternalMap$WeakValueReferenceImpl",
+      "array_depth": 0,
+      "module": null,
+      "instances": 14667,
+      "bytes": 469344
+    },
+    {
+      "rank": 57,
+      "name": "java.util.LinkedHashMap$LinkedEntrySet",
+      "element_type": "java.util.LinkedHashMap$LinkedEntrySet",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 18918,
+      "bytes": 454032
+    },
+    {
+      "rank": 58,
+      "name": "[Ljava.util.concurrent.ConcurrentHashMap$Node;",
+      "element_type": "java.util.concurrent.ConcurrentHashMap$Node",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 364,
+      "bytes": 446992
+    },
+    {
+      "rank": 59,
+      "name": "com.mojang.datafixers.types.templates.Sum",
+      "element_type": "com.mojang.datafixers.types.templates.Sum",
+      "array_depth": 0,
+      "module": null,
+      "instances": 18149,
+      "bytes": 435576
+    },
+    {
+      "rank": 60,
+      "name": "java.util.HashMap",
+      "element_type": "java.util.HashMap",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 8996,
+      "bytes": 431808
+    },
+    {
+      "rank": 61,
+      "name": "[C",
+      "element_type": "char",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 4095,
+      "bytes": 428544
+    },
+    {
+      "rank": 62,
+      "name": "com.google.common.collect.RegularImmutableList",
+      "element_type": "com.google.common.collect.RegularImmutableList",
+      "array_depth": 0,
+      "module": null,
+      "instances": 26625,
+      "bytes": 426000
+    },
+    {
+      "rank": 63,
+      "name": "com.google.common.collect.ImmutableMapEntry",
+      "element_type": "com.google.common.collect.ImmutableMapEntry",
+      "array_depth": 0,
+      "module": null,
+      "instances": 17507,
+      "bytes": 420168
+    },
+    {
+      "rank": 64,
+      "name": "[Lnet.minecraft.util.parsing.packrat.Term;",
+      "element_type": "net.minecraft.util.parsing.packrat.Term",
+      "array_depth": 1,
+      "module": null,
+      "instances": 14807,
+      "bytes": 413992
+    },
+    {
+      "rank": 65,
+      "name": "net.minecraft.world.phys.shapes.ArrayVoxelShape",
+      "element_type": "net.minecraft.world.phys.shapes.ArrayVoxelShape",
+      "array_depth": 0,
+      "module": null,
+      "instances": 12847,
+      "bytes": 411104
+    },
+    {
+      "rank": 66,
+      "name": "com.mojang.datafixers.types.templates.Product",
+      "element_type": "com.mojang.datafixers.types.templates.Product",
+      "array_depth": 0,
+      "module": null,
+      "instances": 16958,
+      "bytes": 406992
+    },
+    {
+      "rank": 67,
+      "name": "jdk.internal.util.WeakReferenceKey",
+      "element_type": "jdk.internal.util.WeakReferenceKey",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 12545,
+      "bytes": 401440
+    },
+    {
+      "rank": 68,
+      "name": "java.lang.invoke.BoundMethodHandle$Species_L",
+      "element_type": "java.lang.invoke.BoundMethodHandle$Species_L",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 10028,
+      "bytes": 401120
+    },
+    {
+      "rank": 69,
+      "name": "com.mojang.datafixers.types.templates.Tag",
+      "element_type": "com.mojang.datafixers.types.templates.Tag",
+      "array_depth": 0,
+      "module": null,
+      "instances": 16636,
+      "bytes": 399264
+    },
+    {
+      "rank": 70,
+      "name": "[Lnet.minecraft.world.level.biome.Climate$Parameter;",
+      "element_type": "net.minecraft.world.level.biome.Climate$Parameter",
+      "array_depth": 1,
+      "module": null,
+      "instances": 8024,
+      "bytes": 385152
+    },
+    {
+      "rank": 71,
+      "name": "com.mojang.datafixers.View",
+      "element_type": "com.mojang.datafixers.View",
+      "array_depth": 0,
+      "module": null,
+      "instances": 23543,
+      "bytes": 376688
+    },
+    {
+      "rank": 72,
+      "name": "java.util.Collections$1",
+      "element_type": "java.util.Collections$1",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 15683,
+      "bytes": 376392
+    },
+    {
+      "rank": 73,
+      "name": "it.unimi.dsi.fastutil.objects.ObjectArrayList",
+      "element_type": "it.unimi.dsi.fastutil.objects.ObjectArrayList",
+      "array_depth": 0,
+      "module": null,
+      "instances": 15462,
+      "bytes": 371088
+    },
+    {
+      "rank": 74,
+      "name": "java.lang.invoke.DirectMethodHandle",
+      "element_type": "java.lang.invoke.DirectMethodHandle",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 9213,
+      "bytes": 368520
+    },
+    {
+      "rank": 75,
+      "name": "net.minecraft.world.level.biome.Climate$ParameterPoint",
+      "element_type": "net.minecraft.world.level.biome.Climate$ParameterPoint",
+      "array_depth": 0,
+      "module": null,
+      "instances": 7599,
+      "bytes": 364752
+    },
+    {
+      "rank": 76,
+      "name": "net.minecraft.resources.ResourceKey",
+      "element_type": "net.minecraft.resources.ResourceKey",
+      "array_depth": 0,
+      "module": null,
+      "instances": 14667,
+      "bytes": 352008
+    },
+    {
+      "rank": 77,
+      "name": "net.minecraft.resources.ResourceKey$InternKey",
+      "element_type": "net.minecraft.resources.ResourceKey$InternKey",
+      "array_depth": 0,
+      "module": null,
+      "instances": 14667,
+      "bytes": 352008
+    },
+    {
+      "rank": 78,
+      "name": "net.minecraft.commands.arguments.NbtPathArgument$Node$$Lambda/0x0000000011098b68",
+      "element_type": "net.minecraft.commands.arguments.NbtPathArgument$Node$$Lambda/0x0000000011098b68",
+      "array_depth": 0,
+      "module": null,
+      "instances": 21973,
+      "bytes": 351568
+    },
+    {
+      "rank": 79,
+      "name": "net.minecraft.core.component.DataComponentInitializers$BakedEntry",
+      "element_type": "net.minecraft.core.component.DataComponentInitializers$BakedEntry",
+      "array_depth": 0,
+      "module": null,
+      "instances": 14443,
+      "bytes": 346632
+    },
+    {
+      "rank": 80,
+      "name": "java.lang.invoke.ResolvedMethodName",
+      "element_type": "java.lang.invoke.ResolvedMethodName",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 13918,
+      "bytes": 334032
+    },
+    {
+      "rank": 81,
+      "name": "com.mojang.datafixers.util.Pair",
+      "element_type": "com.mojang.datafixers.util.Pair",
+      "array_depth": 0,
+      "module": null,
+      "instances": 13790,
+      "bytes": 330960
+    },
+    {
+      "rank": 82,
+      "name": "java.util.Collections$SingletonList",
+      "element_type": "java.util.Collections$SingletonList",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 12947,
+      "bytes": 310728
+    },
+    {
+      "rank": 83,
+      "name": "net.minecraft.util.parsing.packrat.DelayedException$$Lambda/0x0000000010562320",
+      "element_type": "net.minecraft.util.parsing.packrat.DelayedException$$Lambda/0x0000000010562320",
+      "array_depth": 0,
+      "module": null,
+      "instances": 12762,
+      "bytes": 306288
+    },
+    {
+      "rank": 84,
+      "name": "net.minecraft.server.commands.data.StorageDataAccessor",
+      "element_type": "net.minecraft.server.commands.data.StorageDataAccessor",
+      "array_depth": 0,
+      "module": null,
+      "instances": 12642,
+      "bytes": 303408
+    },
+    {
+      "rank": 85,
+      "name": "[Ljava.lang.Class;",
+      "element_type": "java.lang.Class",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 10382,
+      "bytes": 296984
+    },
+    {
+      "rank": 86,
+      "name": "net.minecraft.core.Holder$Direct",
+      "element_type": "net.minecraft.core.Holder$Direct",
+      "array_depth": 0,
+      "module": null,
+      "instances": 12131,
+      "bytes": 291144
+    },
+    {
+      "rank": 87,
+      "name": "[F",
+      "element_type": "float",
+      "array_depth": 1,
+      "module": "java.base@25.0.4.1",
+      "instances": 718,
+      "bytes": 285440
+    },
+    {
+      "rank": 88,
+      "name": "com.google.common.collect.MapMakerInternalMap$StrongKeyWeakValueEntry",
+      "element_type": "com.google.common.collect.MapMakerInternalMap$StrongKeyWeakValueEntry",
+      "array_depth": 0,
+      "module": null,
+      "instances": 11821,
+      "bytes": 283704
+    },
+    {
+      "rank": 89,
+      "name": "net.minecraft.commands.CommandSourceStack",
+      "element_type": "net.minecraft.commands.CommandSourceStack",
+      "array_depth": 0,
+      "module": null,
+      "instances": 4216,
+      "bytes": 269824
+    },
+    {
+      "rank": 90,
+      "name": "java.util.stream.ReferencePipeline$3",
+      "element_type": "java.util.stream.ReferencePipeline$3",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 4816,
+      "bytes": 269696
+    },
+    {
+      "rank": 91,
+      "name": "java.util.stream.ReferencePipeline$Head",
+      "element_type": "java.util.stream.ReferencePipeline$Head",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 4816,
+      "bytes": 269696
+    },
+    {
+      "rank": 92,
+      "name": "com.mojang.datafixers.types.templates.List$ListType",
+      "element_type": "com.mojang.datafixers.types.templates.List$ListType",
+      "array_depth": 0,
+      "module": null,
+      "instances": 10917,
+      "bytes": 262008
+    },
+    {
+      "rank": 93,
+      "name": "it.unimi.dsi.fastutil.objects.ObjectArrayList$1",
+      "element_type": "it.unimi.dsi.fastutil.objects.ObjectArrayList$1",
+      "array_depth": 0,
+      "module": null,
+      "instances": 8127,
+      "bytes": 260064
+    },
+    {
+      "rank": 94,
+      "name": "com.mojang.datafixers.schemas.Schema$$Lambda/0x00000000106dc970",
+      "element_type": "com.mojang.datafixers.schemas.Schema$$Lambda/0x00000000106dc970",
+      "array_depth": 0,
+      "module": null,
+      "instances": 10046,
+      "bytes": 241104
+    },
+    {
+      "rank": 95,
+      "name": "[Lcom.google.common.collect.ImmutableMapEntry;",
+      "element_type": "com.google.common.collect.ImmutableMapEntry",
+      "array_depth": 1,
+      "module": null,
+      "instances": 1618,
+      "bytes": 238432
+    },
+    {
+      "rank": 96,
+      "name": "net.minecraft.core.HolderSet$Direct",
+      "element_type": "net.minecraft.core.HolderSet$Direct",
+      "array_depth": 0,
+      "module": null,
+      "instances": 9523,
+      "bytes": 228552
+    },
+    {
+      "rank": 97,
+      "name": "com.mojang.serialization.MapCodec$2",
+      "element_type": "com.mojang.serialization.MapCodec$2",
+      "array_depth": 0,
+      "module": null,
+      "instances": 7070,
+      "bytes": 226240
+    },
+    {
+      "rank": 98,
+      "name": "net.minecraft.util.parsing.packrat.Dictionary$Reference",
+      "element_type": "net.minecraft.util.parsing.packrat.Dictionary$Reference",
+      "array_depth": 0,
+      "module": null,
+      "instances": 9378,
+      "bytes": 225072
+    },
+    {
+      "rank": 99,
+      "name": "java.lang.reflect.Method",
+      "element_type": "java.lang.reflect.Method",
+      "array_depth": 0,
+      "module": "java.base@25.0.4.1",
+      "instances": 2538,
+      "bytes": 223344
+    },
+    {
+      "rank": 100,
+      "name": "net.minecraft.util.parsing.packrat.commands.StringReaderTerms$1",
+      "element_type": "net.minecraft.util.parsing.packrat.commands.StringReaderTerms$1",
+      "array_depth": 0,
+      "module": null,
+      "instances": 8460,
+      "bytes": 203040
+    }
+  ]
+}

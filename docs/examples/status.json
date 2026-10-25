@@ -1,0 +1,41 @@
+{
+  "state": "ready",
+  "bridge": {
+    "version": "0.1.0",
+    "api_version": 1,
+    "features": [
+      "status",
+      "vm",
+      "metrics",
+      "threads",
+      "histogram",
+      "vm_flags",
+      "live_heap",
+      "profiles"
+    ]
+  },
+  "server": {
+    "uuid": "1a7ce997-259b-452e-8b4e-cecc464142ca",
+    "container_state": "running",
+    "running": true,
+    "started_at": 1792866593104
+  },
+  "java": {
+    "host_pid": 2817346,
+    "container_pid": 26,
+    "user": "container",
+    "hsperf_available": true,
+    "version": "25.0.4.1",
+    "vm_name": "OpenJDK 64-Bit Server VM",
+    "vm_vendor": "Eclipse Adoptium",
+    "started_at": 1792866595712,
+    "uptime_ms": 63214288
+  },
+  "attach": {
+    "supported": true,
+    "listener_running": true,
+    "available": true,
+    "reason": null
+  },
+  "sampled_at": 1792929810000
+}

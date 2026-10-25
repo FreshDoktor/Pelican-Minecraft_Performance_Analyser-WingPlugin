@@ -1,0 +1,23 @@
+{
+  "id": "c0f3e1a2b4d59687",
+  "server_uuid": "1a7ce997-259b-452e-8b4e-cecc464142ca",
+  "mode": "wall",
+  "seconds": 10,
+  "interval_ms": 50,
+  "alloc_interval_bytes": null,
+  "state": "failed",
+  "started_at": 1792930250000,
+  "ends_at": 1792930260000,
+  "finished_at": 1792930256532,
+  "elapsed_ms": 6532,
+  "progress": 0.653,
+  "expires_at": 1792931156532,
+  "error": {
+    "error": "server_not_running",
+    "message": "The server stopped during the profile.",
+    "details": {
+      "container_state": "exited"
+    }
+  },
+  "result": null
+}
