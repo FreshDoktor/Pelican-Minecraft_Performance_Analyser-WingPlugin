@@ -192,3 +192,8 @@ func (d *Data) Names(prefix string) []string {
 func (d *Data) SetString(name, v string) {
 	d.entries[name] = Value{Units: UnitsString, IsString: true, String: v}
 }
+
+// SetLong overrides a numeric counter (for tests of callers).
+func (d *Data) SetLong(name string, v int64) {
+	d.entries[name] = Value{Units: UnitsNone, Long: v}
+}

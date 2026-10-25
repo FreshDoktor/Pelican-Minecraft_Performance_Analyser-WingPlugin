@@ -8,10 +8,10 @@
   "state": "done",
   "started_at": 1792930250000,
   "ends_at": 1792930260000,
-  "finished_at": 1792930260204,
-  "elapsed_ms": 10204,
+  "finished_at": 1792930260001,
+  "elapsed_ms": 10001,
   "progress": 1,
-  "expires_at": 1792931160204,
+  "expires_at": 1792931160001,
   "error": null,
   "result": {
     "duration_ms": 10001.932,
@@ -51,8 +51,8 @@
       "time_ms": 0
     },
     "cpu": {
-      "process_ms": 7,
-      "process_percent": 0.07
+      "process_ms": 10,
+      "process_percent": 0.1
     }
   }
 }

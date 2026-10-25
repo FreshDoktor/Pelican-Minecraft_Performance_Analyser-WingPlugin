@@ -1,0 +1,186 @@
+package profile
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
+)
+
+type recLoader struct {
+	mu   sync.Mutex
+	opts []string
+	errs []error // returned in order, then nil
+}
+
+func (l *recLoader) Load(_ context.Context, _ attach.Target, _, options string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.opts = append(l.opts, options)
+	if len(l.errs) > 0 {
+		e := l.errs[0]
+		l.errs = l.errs[1:]
+		return e
+	}
+	return nil
+}
+
+func newManager(t *testing.T) (*Manager, attach.Target) {
+	t.Helper()
+	m := &Manager{MaxConcurrent: 2, Lib: []byte("library v1"), Loader: &recLoader{}, ProcRoot: t.TempDir()}
+	m.init()
+	return m, attach.Target{HostPID: 4242, NSPID: 26, TmpDir: t.TempDir()}
+}
+
+func mapLib(t *testing.T, m *Manager, pid int) {
+	t.Helper()
+	dir := filepath.Join(m.ProcRoot, "4242")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "maps"), []byte("7f0000000000-7f0000100000 r-xp 00000000 00:2a 17 /tmp/mpa-libasyncProfiler.so\n"), 0o644)
+}
+
+func TestEnsureLib(t *testing.T) {
+	m, tg := newManager(t)
+	lib := filepath.Join(tg.TmpDir, LibName)
+	if err := m.ensureLib(tg); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(lib); string(b) != "library v1" {
+		t.Fatalf("lib %q", b)
+	}
+	// A different file (e.g. planted by the container user) is replaced.
+	os.WriteFile(lib, []byte("evil"), 0o644)
+	if err := m.ensureLib(tg); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(lib); string(b) != "library v1" {
+		t.Errorf("stale lib not replaced: %q", b)
+	}
+	// A library mapped by the JVM is never touched (overwriting it crashes the JVM).
+	os.WriteFile(lib, []byte("old version, loaded"), 0o644)
+	mapLib(t, m, tg.HostPID)
+	if err := m.ensureLib(tg); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(lib); string(b) != "old version, loaded" {
+		t.Errorf("mapped lib was modified: %q", b)
+	}
+}
+
+func TestEnsureLibSymlink(t *testing.T) {
+	m, tg := newManager(t)
+	target := filepath.Join(t.TempDir(), "host-file")
+	os.WriteFile(target, []byte("host"), 0o644)
+	if err := os.Symlink(target, filepath.Join(tg.TmpDir, LibName)); err != nil {
+		t.Skip("symlinks not available:", err)
+	}
+	if err := m.ensureLib(tg); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(target); string(b) != "host" {
+		t.Errorf("symlink target was written: %q", b)
+	}
+	if st, err := os.Lstat(filepath.Join(tg.TmpDir, LibName)); err != nil || !st.Mode().IsRegular() {
+		t.Errorf("lib is not a regular file: %v", err)
+	}
+}
+
+func TestOptions(t *testing.T) {
+	const id = "0123456789abcdef"
+	cases := map[string]string{
+		startOptions(id, ModeWall, 50): "start,event=wall,interval=50ms,threads,log=/tmp/mpa-0123456789abcdef.log",
+		startOptions(id, ModeCPU, 10):  "start,event=itimer,interval=10ms,threads,log=/tmp/mpa-0123456789abcdef.log",
+		startOptions(id, ModeAlloc, 0): "start,alloc=524288,threads,log=/tmp/mpa-0123456789abcdef.log",
+		stopOptions(id, ModeWall):      "stop,collapsed,log=/tmp/mpa-0123456789abcdef.log,file=/tmp/mpa-0123456789abcdef.collapsed",
+		stopOptions(id, ModeAlloc):     "stop,collapsed,total,log=/tmp/mpa-0123456789abcdef.log,file=/tmp/mpa-0123456789abcdef.collapsed",
+	}
+	for got, want := range cases {
+		if got != want {
+			t.Errorf("%q, want %q", got, want)
+		}
+	}
+}
+
+func TestCleanup(t *testing.T) {
+	m, tg := newManager(t)
+	for _, n := range []string{"mpa-a.collapsed", "mpa-b.log", LibName, "keep.txt"} {
+		os.WriteFile(filepath.Join(tg.TmpDir, n), []byte("x"), 0o644)
+	}
+	mapLib(t, m, tg.HostPID)
+	m.Cleanup(context.Background(), tg, true)
+	es, _ := os.ReadDir(tg.TmpDir)
+	var names []string
+	for _, e := range es {
+		names = append(names, e.Name())
+	}
+	if strings.Join(names, ",") != "keep.txt,"+LibName {
+		t.Errorf("left %v", names)
+	}
+	l := m.Loader.(*recLoader)
+	if len(l.opts) != 1 || !strings.HasPrefix(l.opts[0], "stop,collapsed,") {
+		t.Errorf("a loaded profiler must be stopped: %v", l.opts)
+	}
+	// Without listener no attach at all.
+	m.Cleanup(context.Background(), tg, false)
+	if len(l.opts) != 1 {
+		t.Errorf("no attach without listener: %v", l.opts)
+	}
+}
+
+func TestStartRetriesLeftoverProfiler(t *testing.T) {
+	m, tg := newManager(t)
+	fixture, _ := filepath.Abs("../../testdata/mpa-hsperf.bin")
+	l := &recLoader{errs: []error{&attach.CommandError{Code: 200, Message: "return code: 200"}}}
+	m.Loader = l
+	// The agent logs why it failed.
+	m.NewID = func() string {
+		os.WriteFile(filepath.Join(tg.TmpDir, "mpa-00000000000000aa.log"), []byte("[ERROR] Profiler already started\n"), 0o644)
+		return "00000000000000aa"
+	}
+	m.Poll = func() (<-chan time.Time, func()) { return nil, func() {} }
+	m.After = func(time.Duration) <-chan time.Time { return nil }
+	r, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: fixture}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.opts) != 3 || !strings.HasPrefix(l.opts[1], "stop,") || !strings.HasPrefix(l.opts[2], "start,") || r.State != StateRunning {
+		t.Errorf("opts %v state %s", l.opts, r.State)
+	}
+	m.Delete("u", r.ID)
+}
+
+func TestGCTracker(t *testing.T) {
+	d, err := hsperf.ReadFile("../../testdata/mpa-hsperf.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := hsperf.ReadFile("../../testdata/mpa-hsperf.bin")
+	start := int64(63_000_000) // ms since JVM start
+	g := newGCTracker(before, start)
+	g.observe(d) // nothing new
+	// One young collection 1.5 s after the start.
+	d.SetLong("sun.gc.collector.0.invocations", 117)
+	d.SetLong("sun.gc.collector.0.time", 2700556872+10_000_000)
+	d.SetLong("sun.gc.collector.0.lastEntryTime", (start+1500)*1_000_000)
+	d.SetLong("sun.gc.collector.0.lastExitTime", (start+1500)*1_000_000+10_000_000)
+	g.observe(d)
+	g.observe(d)
+	cs, ps, complete := g.result(before, d)
+	if len(ps) != 1 || ps[0].StartOffsetMs != 1500 || ps[0].DurationMs != 10 || !complete || cs[0].Count != 1 || cs[0].TimeMs != 10 || cs[1].Count != 0 {
+		t.Errorf("collectors %+v pauses %+v complete %v", cs, ps, complete)
+	}
+	// Two collections between polls: only the last one is seen.
+	d.SetLong("sun.gc.collector.0.invocations", 119)
+	d.SetLong("sun.gc.collector.0.lastEntryTime", (start+3000)*1_000_000)
+	d.SetLong("sun.gc.collector.0.lastExitTime", (start+3000)*1_000_000+5_000_000)
+	g.observe(d)
+	if _, ps, complete := g.result(before, d); len(ps) != 2 || complete {
+		t.Errorf("pauses %+v complete %v", ps, complete)
+	}
+}

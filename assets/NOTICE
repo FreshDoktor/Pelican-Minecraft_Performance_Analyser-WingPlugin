@@ -1,0 +1,13 @@
+MPA Bridge
+Copyright (C) 2026 FreshDoktor, licensed under the GNU General Public License v3.0.
+
+This product bundles async-profiler 4.1 for linux-x64
+(libasyncProfiler.so, https://github.com/async-profiler/async-profiler),
+Copyright The async-profiler authors, licensed under the Apache License,
+Version 2.0 (see LICENSE-async-profiler in this directory).
+
+The library is taken unmodified from the official release asset
+async-profiler-4.1-linux-x64.tar.gz
+(SHA-256 3b13a38a0063f6970d985a379ddaed91bcf37e239a1ea461d09eacf629f3dde1);
+lib/libasyncProfiler.so has the SHA-256
+8d16556469adc3fe6661f0c023bfc2081342c930796b1d68ae1cd8248bef4c28.

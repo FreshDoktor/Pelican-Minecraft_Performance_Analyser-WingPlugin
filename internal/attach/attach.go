@@ -247,3 +247,34 @@ func (c *Client) ioErr(ctx context.Context, err error) error {
 	}
 	return fmt.Errorf("attach: %w", err)
 }
+
+// Load runs the attach operation "load <lib> true <options>", which makes the
+// JVM load (once) and call Agent_OnAttach of an agent library such as
+// async-profiler. lib is the path inside the container. A non-zero
+// "return code: N" of the agent is returned as CommandError.
+func (c *Client) Load(ctx context.Context, t Target, lib, options string) error {
+	out, err := c.Execute(ctx, t, "load", lib, "true", options)
+	if err != nil {
+		return err
+	}
+	return agentResult(out)
+}
+
+func agentResult(out string) error {
+	line := strings.TrimSpace(out)
+	if rest, ok := strings.CutPrefix(line, "return code:"); ok {
+		code, err := strconv.Atoi(strings.TrimSpace(rest))
+		if err != nil {
+			return fmt.Errorf("%w: bad agent result %q", ErrProtocol, line)
+		}
+		if code != 0 {
+			return &CommandError{Code: code, Message: line}
+		}
+		return nil
+	}
+	// Older JDKs answer only with the attach result code (already checked).
+	if line == "" || line == "0" {
+		return nil
+	}
+	return fmt.Errorf("%w: unexpected agent result %q", ErrProtocol, line)
+}

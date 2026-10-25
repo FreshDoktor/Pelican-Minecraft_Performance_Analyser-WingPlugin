@@ -22,15 +22,17 @@ import (
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/parse"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
 // Implemented lists the features of this build.
-var Implemented = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap}
+var Implemented = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles}
 
 // Attacher runs diagnostic commands in a JVM (attach.Client in production).
 type Attacher interface {
 	Start(ctx context.Context, t attach.Target) error
 	Jcmd(ctx context.Context, t attach.Target, command string) (string, error)
+	Load(ctx context.Context, t attach.Target, lib, options string) error
 }
 
 // MaxAttachOutput limits the output of one attach command (32 MiB).
@@ -61,7 +63,8 @@ type Server struct {
 	Docker     container.Inspector
 	Proc       ProcessFinder
 	Attach     Attacher
-	Features   []string // defaults to Implemented
+	Profiles   *profile.Manager // nil: /profiles answers not_implemented
+	Features   []string         // defaults to Implemented
 	TmpfsBytes int64
 	TLS        bool
 	Limits     NodeLimits
@@ -183,7 +186,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case len(rest) == 1 && rest[0] == "histogram":
 		methods, h = []string{http.MethodGet}, s.histogram
 	case len(rest) == 1 && rest[0] == "profiles":
-		methods, h = []string{http.MethodGet, http.MethodPost}, s.notImplemented
+		methods, h = []string{http.MethodGet, http.MethodPost}, s.profiles
 	case len(rest) == 2 && rest[0] == "profiles":
 		methods = []string{http.MethodGet, http.MethodDelete}
 		h = func(w http.ResponseWriter, r *http.Request, uuid string) {
@@ -191,7 +194,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 				s.fail(w, r, newError(CodeInvalidRequest, "Invalid profile id.", map[string]any{"field": "id", "reason": "must be 16 lowercase hex characters"}))
 				return
 			}
-			s.notImplemented(w, r, uuid)
+			s.profileByID(w, r, uuid, rest[1])
 		}
 	default:
 		s.fail(w, r, newError(CodeNotFound, "", nil))
@@ -422,23 +425,11 @@ func (s *Server) histogram(w http.ResponseWriter, r *http.Request, uuid string) 
 // i.e. never with -Xrs, -XX:+DisableAttachMechanism, without hsperfdata or for
 // a JVM younger than 30 s.
 func (s *Server) jcmd(ctx context.Context, t *target, command string, timeout time.Duration) (string, float64, *apiError) {
-	if s.Attach == nil {
-		return "", 0, newError(CodeNotImplemented, "", nil)
-	}
-	_, uptime := jvmTimes(t.perf, s.nowMs())
-	listener := s.SocketExists(t.java.AttachSocket())
-	a := buildAttach(t.perf, listener, uptime)
-	if !a.Available {
-		return "", 0, newError(CodeAttachUnavailable, "", map[string]any{"reason": *a.Reason})
-	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, TmpDir: t.java.TmpDir}
-	if !listener {
-		s.Log.Info("starting attach listener", "pid", target.HostPID, "ns_pid", target.NSPID)
-		if err := s.Attach.Start(ctx, target); err != nil {
-			return "", 0, s.attachError(command, err)
-		}
+	target, e := s.ensureAttach(ctx, t, command)
+	if e != nil {
+		return "", 0, e
 	}
 	start := s.Now()
 	out, err := s.Attach.Jcmd(ctx, target, command)
@@ -447,6 +438,27 @@ func (s *Server) jcmd(ctx context.Context, t *target, command string, timeout ti
 		return "", 0, s.attachError(command, err)
 	}
 	return out, dur, nil
+}
+
+// ensureAttach checks the safety rules and starts the listener if needed.
+func (s *Server) ensureAttach(ctx context.Context, t *target, what string) (attach.Target, *apiError) {
+	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, TmpDir: t.java.TmpDir}
+	if s.Attach == nil {
+		return target, newError(CodeNotImplemented, "", nil)
+	}
+	_, uptime := jvmTimes(t.perf, s.nowMs())
+	listener := s.SocketExists(t.java.AttachSocket())
+	a := buildAttach(t.perf, listener, uptime)
+	if !a.Available {
+		return target, newError(CodeAttachUnavailable, "", map[string]any{"reason": *a.Reason})
+	}
+	if !listener {
+		s.Log.Info("starting attach listener", "pid", target.HostPID, "ns_pid", target.NSPID)
+		if err := s.Attach.Start(ctx, target); err != nil {
+			return target, s.attachError(what, err)
+		}
+	}
+	return target, nil
 }
 
 func (s *Server) attachError(command string, err error) *apiError {

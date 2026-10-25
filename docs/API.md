@@ -394,9 +394,23 @@ start it, poll its state (every 1–2 s), fetch the result. One running profile 
 Examples: [`profile-created.json`](examples/profile-created.json) (response of `POST`),
 [`profile-running.json`](examples/profile-running.json), [`profile-done.json`](examples/profile-done.json),
 [`profile-done-no-samples.json`](examples/profile-done-no-samples.json) (CPU mode on an idle/paused server),
-[`profile-failed.json`](examples/profile-failed.json), [`profiles.json`](examples/profiles.json) (list).
-The stacks in `profile-done.json` are **constructed** from the thread dump fixture (no recorded
-profile exists yet), the format is final.
+[`profile-failed.json`](examples/profile-failed.json), [`profiles.json`](examples/profiles.json) (list),
+[`profiles-empty.json`](examples/profiles-empty.json) (list without profiles).
+They are recorded from the real handlers and the profile manager with a fake attach socket. The
+stacks in `profile-done.json` are **constructed** from the thread dump fixture (no profile of the
+Minecraft server has been recorded yet), the format is final.
+
+How a profile runs (nothing of the request except the checked numbers and the mode enum reaches the JVM):
+
+- The bridge copies the embedded `libasyncProfiler.so` (async-profiler 4.1, 0.55 MB) to
+  `/tmp/mpa-libasyncProfiler.so` in the container, unless the JVM has it loaded already, and loads it with the
+  attach operation `load`. The library stays there while the JVM runs and is reused.
+- Free space needed in the container's `/tmp`: 8 MiB plus the library if it is not there yet
+  (`insufficient_tmp_space` otherwise).
+- Profiler messages go to `/tmp/mpa-<id>.log`, the profile to `/tmp/mpa-<id>.collapsed`, never to the
+  server console. Both are deleted after every run, on `DELETE`, and when the bridge starts.
+- Profiles live in the memory of the bridge. A restart of the bridge loses them; on start it stops a
+  profiler that is still active and removes leftover `mpa-*` files (never the library).
 
 #### `POST /profiles`
 
@@ -413,13 +427,16 @@ Response `202 Accepted` with the profile object (`state` `running`) and header
 arrives; failures to start are returned right away as errors.
 
 Errors: `invalid_request` (400), `profile_running` (409, `details.profile_id`), `too_many_profiles`
-(429, `details.limit`), `attach_unavailable`, `attach_failed`, `attach_timeout`,
-`insufficient_tmp_space` (507, `details.free_bytes`, `details.required_bytes`), plus the server errors of `/vm`.
+(429, `details.limit`), `attach_unavailable`, `attach_failed` (also when the agent refuses to start,
+`details.code` = its return code), `attach_timeout`, `insufficient_tmp_space` (507,
+`details.free_bytes`, `details.required_bytes`), `internal_error` (local file problems), plus the
+server errors of `/vm`. Starting (listener, library, `load`) has a timeout of 15 s.
 
 #### `GET /profiles`
 
 `{"profiles": [ … ]}`: all profiles of the server the bridge still knows (running and unexpired
-finished ones), newest first, **without** `result` (always `null` here).
+finished ones), newest first, **without** `result` (always `null` here). Works for stopped servers too;
+`404 server_not_found` if the container does not exist.
 
 #### `GET /profiles/{id}`
 
@@ -448,7 +465,7 @@ result. `204 No Content` on success, `404 profile_not_found` otherwise.
 | `elapsed_ms` | integer | since `started_at` (until `finished_at`) |
 | `progress` | number | 0–1 (`elapsed_ms / (seconds·1000)`, capped at 1) |
 | `expires_at` | Unix ms, nullable | finished profiles are kept 15 minutes, then 404; `null` while running. The panel stores results itself |
-| `error` | error object, nullable | `failed` only: same shape as [error responses](#errors), e.g. `server_not_running` if the server stopped |
+| `error` | error object, nullable | `failed` only: same shape as [error responses](#errors): `server_not_running` (`details.container_state`, the server stopped), `no_java_process` (the JVM ended, container still running), `attach_failed`, `attach_timeout`, `output_too_large` |
 | `result` | object, nullable | `done` only, see below |
 
 #### Profile result
@@ -459,20 +476,20 @@ result. `204 No Content` on success, `404 profile_not_found` otherwise.
 | `unit` | enum | `samples` (`wall`, `cpu`: **time = `count` × `interval_ms`**) · `bytes` (`alloc`: `count` = allocated bytes) |
 | `interval_ms` | integer, nullable | same as in the profile object, repeated so the result is self-contained |
 | `total` | integer | sum of `count` over all threads |
-| `warnings[]` | enum[] | `no_samples` (nothing recorded; with `cpu` typical for an idle or paused server, e.g. `pause-when-empty-seconds`) · `server_thread_missing` (no thread named `Server thread`) · `truncated` (output exceeded the size limit, smallest stacks dropped) |
+| `warnings[]` | enum[] | `no_samples` (nothing recorded; with `cpu` typical for an idle or paused server, e.g. `pause-when-empty-seconds`) · `server_thread_missing` (no thread named `Server thread`) · `truncated` (the collapsed output exceeded 32 MiB, the rest was dropped) |
 | `threads[]` | array | **one entry per thread**, sorted by `count` descending |
-| `threads[].name` | string | thread name, e.g. `Server thread` (`""` if the profiler recorded no thread) |
+| `threads[].name` | string | thread name as async-profiler records it, e.g. `Server thread`; JVM-internal threads are cut to 15 characters (`C1 CompilerThre`); `""` if the profiler recorded no thread |
 | `threads[].tid` | integer, nullable | native thread id, matches `os_id` in `/threads` |
 | `threads[].count` | integer | samples (or bytes) of this thread |
 | `threads[].stacks[]` | array | sorted by `count` descending |
-| `threads[].stacks[].stack` | string | collapsed stack **root first**, frames separated by `;`, without the thread frame. Java frames in JVM form with slashes (`net/minecraft/server/MinecraftServer.waitUntilNextTick`, lambdas `…$$Lambda.0x….run`), native and JVM frames as async-profiler names them (`Parker::park(bool, long)`, `__pthread_cond_timedwait`, `epoll_wait`) |
+| `threads[].stacks[].stack` | string | collapsed stack **root first**, frames separated by `;`, without the thread frame. Java frames in JVM form with slashes (`net/minecraft/server/MinecraftServer.waitUntilNextTick`, lambdas `…$$Lambda.0x….run`), native and JVM frames as async-profiler names them (`Parker::park(bool, long)`, `__pthread_cond_timedwait`, `epoll_wait`, or the library path such as `/usr/lib/x86_64-linux-gnu/libc.so.6`). With `alloc` the last frame is the allocated class with an annotation, e.g. `byte[]_[i]`. `""` for a thread sampled without frames |
 | `threads[].stacks[].count` | integer | |
 | `gc.count` / `time_ms` | integer / number | collections and their time during the profile (delta of the counters) |
 | `gc.collectors[]` | array | [Collector](#collector-object) `index`, `name`, `kind`, `time_is_pause`, `count`, `time_ms` (deltas), all collectors |
 | `gc.pauses[]` | array | individual collections observed by polling hsperfdata: `collector_index`, `kind`, `start_offset_ms` (from `started_at`), `duration_ms` |
 | `gc.pauses_complete` | bool | `false` if collections happened faster than the bridge could observe them; `gc.count` is exact anyway |
 | `safepoints.count` / `time_ms` | integer / number | safepoints during the profile |
-| `cpu.process_ms` | number | CPU time of the Java process during the profile |
+| `cpu.process_ms` | number | CPU time of the Java process during the profile (`/proc`, 10 ms resolution) |
 | `cpu.process_percent` | number | `process_ms / duration_ms · 100` (one core = 100) |
 
 Idle detection is up to the panel: with `wall` the `Server thread` is sampled every interval;
@@ -524,9 +541,9 @@ example `examples/error-<code>.json` (underscores replaced by dashes).
 Fixed inputs (not from the fixtures): server UUID `1a7ce997-259b-452e-8b4e-cecc464142ca`, host PIDs,
 all timestamps, the bridge start, the container limits (Wings: server memory 1907 MB × overhead
 1.15 = 2299579597 bytes ≈ 2.142 GiB, CPU limit 100 % = 1 CPU), host CPUs 24.
-All examples except the profiles are recorded from the real HTTP handlers, with Docker, `/proc`
-and the attach socket faked: the attach answers are the fixture outputs (`Thread.print -l`,
-`GC.class_histogram -all`), command durations are fixed.
+All examples (except the `error-*` bodies) are recorded from the real HTTP handlers, with Docker,
+`/proc`, the attach socket and the clock faked: the attach answers are the fixture outputs
+(`Thread.print -l`, `GC.class_histogram -all`), command durations are fixed.
 Illustrative (format final, values plausible but not recorded): the `VM.flags`, `GC.heap_info` and
 `VM.metaspace` outputs behind `vm.json` and `metrics-live.json`, the stacks and GC/CPU numbers of the
 profile examples.
@@ -553,4 +570,5 @@ Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms1
 | `profile-done-no-samples.json` | `GET /profiles/{id}`, done (`cpu`, nothing sampled) |
 | `profile-failed.json` | `GET /profiles/{id}`, failed |
 | `profiles.json` | `GET /profiles` |
+| `profiles-empty.json` | `GET /profiles`, no profiles |
 | `error-*.json` | one per error code |

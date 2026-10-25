@@ -17,10 +17,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/assets"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/api"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/config"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
 // Version is set at build time with -ldflags "-X main.Version=…".
@@ -49,19 +51,37 @@ func run(cfgPath string, log *slog.Logger) error {
 	if len(cfg.Allowed) == 0 {
 		log.Warn("allowed_ips is empty: every address may connect (the token is still required)")
 	}
+	docker := container.NewDocker(cfg.DockerSocket)
+	proc := container.Proc{Root: cfg.ProcRoot}
+	attacher := attach.New(api.MaxAttachOutput)
 	srv := &api.Server{
 		Version:    Version,
 		Creds:      config.NewCredentials(cfg),
 		Allowed:    cfg.Allowed,
-		Docker:     container.NewDocker(cfg.DockerSocket),
-		Proc:       container.Proc{Root: cfg.ProcRoot},
-		Attach:     attach.New(api.MaxAttachOutput),
+		Docker:     docker,
+		Proc:       proc,
+		Attach:     attacher,
 		TmpfsBytes: cfg.TmpfsSizeBytes,
 		TLS:        cfg.API.SSL.Enabled,
 		Limits:     api.NodeLimits{MaxConcurrentProfiles: cfg.MaxConcurrentProfiles, MaxProfileSeconds: cfg.MaxProfileSeconds},
 		Log:        log,
 	}
+	srv.Profiles = &profile.Manager{
+		MaxConcurrent: cfg.MaxConcurrentProfiles,
+		Lib:           assets.AsyncProfiler,
+		Loader:        attacher,
+		ProcRoot:      cfg.ProcRoot,
+		CPUTicks:      proc.CPUTicks,
+		Check:         srv.CheckServer,
+		Log:           log,
+	}
 	srv.Init()
+	// Profiler files of an earlier bridge run (profiles do not survive a restart).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		srv.CleanupAll(ctx, docker)
+	}()
 
 	hs := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),

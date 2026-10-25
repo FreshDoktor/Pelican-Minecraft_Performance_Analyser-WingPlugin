@@ -18,6 +18,7 @@ import (
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/config"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
 const (
@@ -71,7 +72,7 @@ func testServer(t *testing.T) *Server {
 
 	java := exJava()
 	java.Hsperf = fixture
-	java.TmpDir = "/proc/2817346/root/tmp"
+	java.TmpDir = t.TempDir() // the container's /tmp
 	javaNoPerf := exJava()
 	javaNoPerf.User, javaNoPerf.Hsperf = "", ""
 
@@ -91,6 +92,29 @@ func testServer(t *testing.T) *Server {
 		SocketExists: func(p string) bool {
 			return strings.HasSuffix(filepath.ToSlash(p), "/.java_pid26")
 		},
+	}
+	f := s.Attach.(*fakeAttach)
+	collapsed, err := os.ReadFile("testdata/profile-wall.collapsed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.collapsed = string(collapsed)
+	f.timers = newFakeTimers()
+	ticks := int64(1000)
+	s.Profiles = &profile.Manager{
+		MaxConcurrent: 2,
+		Lib:           []byte("fake libasyncProfiler.so"),
+		Loader:        f,
+		ProcRoot:      t.TempDir(),
+		Check:         s.CheckServer,
+		Now:           c.Now,
+		ReadHsperf:    func(p string) (*hsperf.Data, error) { return f.readHsperf(s, p) },
+		CPUTicks:      func(int) (int64, error) { v := ticks; ticks += f.cpuStep; return v, nil },
+		FreeBytes:     func(string) (int64, bool) { return f.freeBytes, true },
+		After:         f.timers.After,
+		Poll:          f.timers.Poll,
+		NewID:         func() string { return exProfileID },
+		Log:           s.Log,
 	}
 	s.Init()
 	c.Set(time.UnixMilli(exNow))
@@ -169,8 +193,8 @@ func TestGolden(t *testing.T) {
 		{"/api/v1/servers/" + uuidNoPerf + "/metrics", "error-hsperf-unavailable", 409},
 		{"/api/v1/servers/" + uuidMissing + "/status", "error-server-not-found", 404},
 		{"/api/v1/servers/" + uuidDocker + "/vm", "error-docker-unavailable", 503},
-		{"/api/v1/servers/" + uuidRunning + "/profiles", "error-not-implemented", 501},
-		{"/api/v1/servers/" + uuidRunning + "/profiles/" + exProfileID, "error-not-implemented", 501},
+		{"/api/v1/servers/" + uuidRunning + "/profiles", "profiles-empty", 200},
+		{"/api/v1/servers/" + uuidRunning + "/profiles/" + exProfileID, "error-profile-not-found", 404},
 		{"/api/v1/nope", "error-not-found", 404},
 		{"/api/v1/servers/" + uuidRunning + "/nope", "error-not-found", 404},
 	}
@@ -250,7 +274,7 @@ func TestAttachSafety(t *testing.T) {
 	if w := do(t, s, http.MethodGet, path, testToken); w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
-	if f, _ := fakes(s); f.starts != 0 || f.targets[0] != (attach.Target{HostPID: 2817346, NSPID: 26, TmpDir: "/proc/2817346/root/tmp"}) {
+	if f, _ := fakes(s); f.starts != 0 || f.targets[0].HostPID != 2817346 || f.targets[0].NSPID != 26 {
 		t.Errorf("starts %d, targets %+v", f.starts, f.targets)
 	}
 
@@ -448,7 +472,7 @@ func TestRoutingErrors(t *testing.T) {
 	if w := do(t, s, http.MethodHead, "/api/v1/servers/"+uuidRunning+"/status", testToken); w.Code != 200 {
 		t.Errorf("HEAD: %d", w.Code)
 	}
-	if w := do(t, s, http.MethodDelete, "/api/v1/servers/"+uuidRunning+"/profiles/"+exProfileID, testToken); w.Code != 501 {
+	if w := do(t, s, http.MethodDelete, "/api/v1/servers/"+uuidRunning+"/profiles/"+exProfileID, testToken); w.Code != 404 {
 		t.Errorf("DELETE profile: %d", w.Code)
 	}
 	if w := do(t, s, http.MethodPut, "/api/v1/servers/"+uuidRunning+"/profiles", testToken); w.Code != 405 || w.Header().Get("Allow") != "GET, POST" {

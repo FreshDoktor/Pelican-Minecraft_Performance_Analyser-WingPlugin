@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,7 +15,7 @@ import (
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
-	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/parse"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
 // go test ./internal/api -run Examples -update rewrites docs/examples.
@@ -136,77 +137,105 @@ var exErrorDetails = map[string]map[string]any{
 	CodeInsufficientTmpSpace: {"free_bytes": 1048576, "required_bytes": 8388608},
 }
 
+// post sends a JSON body to the real handlers.
+func post(t *testing.T, s *Server, path, body string, status int) json.RawMessage {
+	t.Helper()
+	r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	r.RemoteAddr = "10.0.0.2:51234"
+	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != status {
+		t.Fatalf("POST %s: status %d, want %d: %s", path, w.Code, status, w.Body)
+	}
+	return json.RawMessage(bytes.TrimSpace(w.Body.Bytes()))
+}
+
+// Profile timeline of the examples (fake clock).
+const (
+	exPauseOffsetMs = 4183.211 // the young collection during the profile
+	exJVMStart      = int64(1792866595712)
+)
+
+// gcDuringProfile adds one young collection (20.052 ms) and 3 safepoints to the fixture.
+func gcDuringProfile(d *hsperf.Data) {
+	startUptime := float64(exProfileStart - exJVMStart)
+	entry := int64((startUptime + exPauseOffsetMs) * 1e6)
+	inv, _ := d.Long("sun.gc.collector.0.invocations")
+	tm, _ := d.Long("sun.gc.collector.0.time")
+	d.SetLong("sun.gc.collector.0.invocations", inv+1)
+	d.SetLong("sun.gc.collector.0.time", tm+20_052_215)
+	d.SetLong("sun.gc.collector.0.lastEntryTime", entry)
+	d.SetLong("sun.gc.collector.0.lastExitTime", entry+20_052_215)
+	sp, _ := d.Long("sun.rt.safepoints")
+	st, _ := d.Long("sun.rt.safepointTime")
+	d.SetLong("sun.rt.safepoints", sp+3)
+	d.SetLong("sun.rt.safepointTime", st+21_408_000)
+}
+
+// profileExamples runs profiles through the real handlers and the profile
+// manager, with fake attach (collapsed output from testdata), fake clock and
+// fake hsperfdata changes.
 func profileExamples(t *testing.T) map[string]any {
-	raw, err := os.ReadFile("testdata/profile-wall.collapsed")
-	if err != nil {
-		t.Fatal(err)
-	}
-	threads, total := BuildProfileThreads(parse.ParseCollapsed(string(raw)))
-	interval := 50
-	base := Profile{
-		ID: exProfileID, ServerUUID: exUUID, Mode: "wall", Seconds: 10, IntervalMs: &interval,
-		State: ProfileRunning, StartedAt: exProfileStart, EndsAt: exProfileStart + 10_000,
-	}
 	ex := map[string]any{}
-	created := base
-	ex["profile-created"] = created
+	base := "/api/v1/servers/" + exUUID + "/profiles"
 
-	running := base
-	running.ElapsedMs, running.Progress = 4210, 0.421
-	ex["profile-running"] = running
-	ex["profiles"] = ProfileList{Profiles: []Profile{running}}
+	// wall, 10 s, with one collection.
+	s := testServer(t)
+	f, c := fakes(s)
+	c.Set(time.UnixMilli(exProfileStart))
+	ex["profiles-empty"] = getAt(t, s, base, 200)
+	ex["profile-created"] = post(t, s, base, `{"seconds": 10}`, 202)
+	c.Set(time.UnixMilli(exProfileStart + 4210))
+	ex["profile-running"] = getAt(t, s, base+"/"+exProfileID, 200)
+	ex["profiles"] = getAt(t, s, base, 200)
+	f.mu.Lock()
+	f.hsperfMod = gcDuringProfile
+	f.mu.Unlock()
+	fire(t, f.timers.poll)
+	c.Set(time.UnixMilli(exProfileStart + 10_000))
+	fire(t, f.timers.end)
+	waitState(t, s, exUUID, exProfileID, profile.StateDone)
+	ex["profile-done"] = getAt(t, s, base+"/"+exProfileID, 200)
 
-	young := true
-	full := true
-	done := base
-	done.State = ProfileDone
-	done.FinishedAt = ptr(exProfileStart + 10_318)
-	done.ElapsedMs, done.Progress = 10_318, 1
-	done.ExpiresAt = ptr(*done.FinishedAt + 15*60*1000)
-	done.Result = &ProfileResult{
-		DurationMs: 10004.871, Unit: UnitSamples, IntervalMs: &interval, Total: total, Warnings: []string{},
-		Threads: threads,
-		GC: ProfileGC{
-			Count: 1, TimeMs: 20.052,
-			Collectors: []ProfileCollector{
-				{Index: 0, Name: "Serial young collection pauses", Kind: hsperf.KindYoung, TimeIsPause: &young, Count: 1, TimeMs: 20.052},
-				{Index: 1, Name: "Serial full collection pauses", Kind: hsperf.KindFull, TimeIsPause: &full, Count: 0, TimeMs: 0},
-			},
-			Pauses:         []GCPause{{CollectorIndex: 0, Kind: hsperf.KindYoung, StartOffsetMs: 4183.211, DurationMs: 20.052}},
-			PausesComplete: true,
-		},
-		Safepoints: ProfileSafepoints{Count: 3, TimeMs: 21.408},
-		CPU:        ProfileCPU{ProcessMs: 41.2, ProcessPercent: 0.412},
-	}
-	ex["profile-done"] = done
+	// cpu on a paused (idle) server: nothing sampled.
+	s = testServer(t)
+	f, c = fakes(s)
+	f.collapsed, f.cpuStep, f.stopTook = "", 1, 1932*time.Microsecond
+	c.Set(time.UnixMilli(exProfileStart))
+	post(t, s, base, `{"seconds": 10, "mode": "cpu"}`, 202)
+	c.Set(time.UnixMilli(exProfileStart + 10_000))
+	fire(t, f.timers.end)
+	waitState(t, s, exUUID, exProfileID, profile.StateDone)
+	ex["profile-done-no-samples"] = getAt(t, s, base+"/"+exProfileID, 200)
 
-	cpuInterval := 10
-	idle := base
-	idle.Mode, idle.IntervalMs = "cpu", &cpuInterval
-	idle.State = ProfileDone
-	idle.FinishedAt = ptr(exProfileStart + 10_204)
-	idle.ElapsedMs, idle.Progress = 10_204, 1
-	idle.ExpiresAt = ptr(*idle.FinishedAt + 15*60*1000)
-	idle.Result = &ProfileResult{
-		DurationMs: 10001.932, Unit: UnitSamples, IntervalMs: &cpuInterval, Total: 0,
-		Warnings: []string{WarningNoSamples}, Threads: []ProfileThread{},
-		GC: ProfileGC{Collectors: []ProfileCollector{
-			{Index: 0, Name: "Serial young collection pauses", Kind: hsperf.KindYoung, TimeIsPause: &young},
-			{Index: 1, Name: "Serial full collection pauses", Kind: hsperf.KindFull, TimeIsPause: &full},
-		}, Pauses: []GCPause{}, PausesComplete: true},
-		CPU: ProfileCPU{ProcessMs: 7, ProcessPercent: 0.07},
-	}
-	ex["profile-done-no-samples"] = idle
-
-	failed := base
-	failed.State = ProfileFailed
-	failed.FinishedAt = ptr(exProfileStart + 6_532)
-	failed.ElapsedMs, failed.Progress = 6_532, 0.653
-	failed.ExpiresAt = ptr(*failed.FinishedAt + 15*60*1000)
-	e := newError(CodeServerNotRunning, "The server stopped during the profile.", map[string]any{"container_state": "exited"}).body
-	failed.Error = &e
-	ex["profile-failed"] = failed
+	// The server stops during the profile.
+	s = testServer(t)
+	f, c = fakes(s)
+	c.Set(time.UnixMilli(exProfileStart))
+	post(t, s, base, `{"seconds": 10}`, 202)
+	stopped := exContainer()
+	stopped.State, stopped.Running, stopped.PID = "exited", false, 0
+	s.Docker.(fakeDocker)[exUUID] = stopped
+	f.mu.Lock()
+	f.hsperfErr = os.ErrNotExist
+	f.mu.Unlock()
+	c.Set(time.UnixMilli(exProfileStart + 6532))
+	fire(t, f.timers.poll)
+	waitState(t, s, exUUID, exProfileID, profile.StateFailed)
+	ex["profile-failed"] = getAt(t, s, base+"/"+exProfileID, 200)
 	return ex
+}
+
+// getAt is get without resetting the clock.
+func getAt(t *testing.T, s *Server, path string, status int) json.RawMessage {
+	t.Helper()
+	w := do(t, s, http.MethodGet, path, testToken)
+	if w.Code != status {
+		t.Fatalf("%s: status %d, want %d: %s", path, w.Code, status, w.Body)
+	}
+	return json.RawMessage(bytes.TrimSpace(w.Body.Bytes()))
 }
 
 func marshalExample(v any) []byte {

@@ -131,3 +131,33 @@ func parseInspect(uuid string, body []byte) (Info, error) {
 	}
 	return info, nil
 }
+
+// List returns the names (server UUIDs) of the running Pelican server containers.
+func (d *Docker) List(ctx context.Context) ([]string, error) {
+	filters := url.QueryEscape(`{"label":["Service=Pelican","ContainerType=server_process"],"status":["running"]}`)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/containers/json?filters="+filters, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := d.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDockerUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrDockerUnavailable, resp.StatusCode)
+	}
+	var list []struct {
+		Names []string `json:"Names"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&list); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDockerUnavailable, err)
+	}
+	var out []string
+	for _, c := range list {
+		for _, n := range c.Names {
+			out = append(out, strings.TrimPrefix(n, "/"))
+		}
+	}
+	return out, nil
+}
