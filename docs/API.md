@@ -494,6 +494,41 @@ result. `204 No Content` on success, `404 profile_not_found` otherwise.
 
 Idle detection is up to the panel: with `wall` the `Server thread` is sampled every interval;
 frames below `MinecraftServer.waitUntilNextTick` / `waitForTasks` are idle time between ticks.
+The method names depend on the mappings, see below.
+
+### Tick and idle methods
+
+The names of the tick and idle methods of the `Server thread` in each mapping the server can run with.
+The panel uses them for the idle time of a profile, the tick monitor (`GET /ticks`, coming) for the
+method it measures; both keep the same table. Checked against Mojang's server mappings, Fabric's
+intermediary and MCPConfig (2026-10-25), and against the profiles in `testdata/`.
+
+A stack (root first) is looked at from the root: the **first** frame of a class ending in
+`/MinecraftServer` that is a tick or idle method decides. Idle method first: the thread waits between
+two ticks. Tick method first: tick work, including waiting inside the tick (e.g. a mod waits for a chunk
+in `BlockableEventLoop.waitForTasks`), which is lag. Neither: tick work (e.g. `[unknown_Java]`, stacks
+the profiler couldn't walk).
+
+| Mapping | Runs on | Tick: `tickServer`, `tickChildren` | Idle: `waitUntilNextTick`, `waitForTasks` |
+| --- | --- | --- | --- |
+| `mojmap` | vanilla from 26.1, Paper from 1.20.5, NeoForge from 1.20.2, Forge from 1.20.6 | `tickServer`, `tickChildren` | `waitUntilNextTick`, `waitForTasks` |
+| `intermediary` | Fabric, Quilt (same names in every version, class names `net/minecraft/class_…` except `MinecraftServer`) | `method_3748`, `method_3813` | `method_16208`, `method_20813` |
+| `srg` | Forge 1.17 – 1.20, NeoForge 1.20.1 (classes in Mojmap, methods in SRG) | `m_5705_`, `m_5703_` | `m_130012_`, `m_5667_` |
+| `mcp` | Forge 1.13 – 1.16 (MCP class names, SRG ids stay the same across versions) | `func_71217_p`, `func_71190_q` | `func_213202_o`, `func_223705_bi` |
+
+- **Up to 1.13** there is no `waitUntilNextTick`: `MinecraftServer.run` (not obfuscated) calls
+  `java/lang/Thread.sleep` itself. A stack with `MinecraftServer.run` directly followed by
+  `java/lang/Thread.sleep` is idle; it counts as `mcp`.
+- **Not covered:** obfuscated vanilla before 26.1 and Spigot/Paper before 1.20.5 (method names change
+  with every version). No idle detection there: the panel shows no tick load, the tick monitor answers
+  `unsupported`.
+- `waitForTasks` is a method of `BlockableEventLoop` (`class_1255` in intermediary,
+  `ThreadTaskExecutor` in mcp); `MinecraftServer` overrides it in newer versions. Only the frame of
+  `MinecraftServer` counts for the decision above.
+
+Seen in the profiles (`testdata/`): Fabric without players 520 of 599 samples idle, Fabric with
+Immersive Snow 28 resp. 52 of 1200 (the mod waits for chunks inside the tick), the Forge 1.12 modpack
+17 of 1196 (`Thread.sleep` in `run`).
 
 ## Errors
 
