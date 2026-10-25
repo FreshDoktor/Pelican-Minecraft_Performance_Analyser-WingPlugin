@@ -55,6 +55,7 @@ type fakeAttach struct {
 	libs      []string
 	loadErr   error
 	collapsed string
+	tickOut   func(options string) string // output of the tick monitor's commands
 	stopTook  time.Duration
 	timers    *fakeTimers
 	cpuStep   int64 // CPU ticks per read
@@ -168,6 +169,9 @@ func (f *fakeAttach) Load(_ context.Context, t attach.Target, lib, options strin
 	f.libs = append(f.libs, lib)
 	err := f.loadErr
 	collapsed := f.collapsed
+	if f.tickOut != nil && strings.Contains(options, "/tmp/mpa-ticks-") {
+		collapsed = f.tickOut(options)
+	}
 	f.mu.Unlock()
 	if strings.HasPrefix(options, "start") {
 		return err
@@ -189,15 +193,18 @@ func (f *fakeAttach) loadCalls() []string {
 }
 
 // fakeTimers drives the profile loop: end fires the end of every profile,
-// poll one hsperfdata poll.
+// poll one hsperfdata poll, tick one window of the tick monitor.
 type fakeTimers struct {
 	end  chan time.Time
 	poll chan time.Time
+	tick chan time.Time
 }
 
 func newFakeTimers() *fakeTimers {
-	return &fakeTimers{end: make(chan time.Time), poll: make(chan time.Time)}
+	return &fakeTimers{end: make(chan time.Time), poll: make(chan time.Time), tick: make(chan time.Time)}
 }
+
+func (ft *fakeTimers) Every(time.Duration) (<-chan time.Time, func()) { return ft.tick, func() {} }
 
 func (ft *fakeTimers) After(time.Duration) <-chan time.Time { return ft.end }
 

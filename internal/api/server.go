@@ -26,7 +26,7 @@ import (
 )
 
 // Implemented lists the features of this build.
-var Implemented = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles}
+var Implemented = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles, FeatureTicks}
 
 // Attacher runs diagnostic commands in a JVM (attach.Client in production).
 type Attacher interface {
@@ -64,6 +64,7 @@ type Server struct {
 	Proc       ProcessFinder
 	Attach     Attacher
 	Profiles   *profile.Manager // nil: /profiles answers not_implemented
+	Ticks      *profile.Ticks   // nil: /ticks answers not_implemented
 	Features   []string         // defaults to Implemented
 	TmpfsBytes int64
 	TLS        bool
@@ -187,6 +188,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		methods, h = []string{http.MethodGet}, s.histogram
 	case len(rest) == 1 && rest[0] == "profiles":
 		methods, h = []string{http.MethodGet, http.MethodPost}, s.profiles
+	case len(rest) == 1 && rest[0] == "ticks":
+		methods, h = []string{http.MethodGet}, s.ticks
 	case len(rest) == 2 && rest[0] == "profiles":
 		methods = []string{http.MethodGet, http.MethodDelete}
 		h = func(w http.ResponseWriter, r *http.Request, uuid string) {

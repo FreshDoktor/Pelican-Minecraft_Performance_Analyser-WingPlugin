@@ -1,7 +1,7 @@
 {
   "state": "ready",
   "bridge": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "api_version": 1,
     "features": [
       "status",
@@ -11,7 +11,8 @@
       "histogram",
       "vm_flags",
       "live_heap",
-      "profiles"
+      "profiles",
+      "ticks"
     ]
   },
   "server": {

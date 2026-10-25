@@ -12,7 +12,7 @@ If the contract changes, this file and the examples change first, then both side
 - [Conventions](#conventions)
 - [Authentication and headers](#authentication-and-headers)
 - [Versioning](#versioning)
-- [Endpoints](#endpoints): [node status](#get-apiv1status), [server status](#get-status), [vm](#get-vm), [metrics](#get-metrics), [threads](#get-threads), [histogram](#get-histogram), [profiles](#profiles)
+- [Endpoints](#endpoints): [node status](#get-apiv1status), [server status](#get-status), [vm](#get-vm), [metrics](#get-metrics), [threads](#get-threads), [histogram](#get-histogram), [profiles](#profiles), [ticks](#get-ticks)
 - [Errors](#errors)
 - [Examples](#examples)
 
@@ -46,7 +46,7 @@ If the contract changes, this file and the examples change first, then both side
 | Header | Direction | Value |
 | --- | --- | --- |
 | `Authorization` | request | `Bearer <token>`: the **node token of Wings** (`token` in `/etc/pelican/config.yml`, i.e. `daemon_token` of the node in the panel). Compared in constant time. |
-| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.1.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
+| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.2.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
 | `Content-Type` | request | `application/json` for request bodies (`POST /profiles`). Bodies are limited to 4 KiB. |
 
 The bridge resolves the token like Wings: `WINGS_TOKEN` / `WINGS_TOKEN_ID` take precedence over the
@@ -77,6 +77,7 @@ The panel calls the bridge server-side only. The bridge sends no CORS headers.
   | `vm_flags` | `flags` in `/vm` | 2 |
   | `live_heap` | `live_heap` in `/metrics?live=1` | 2 |
   | `profiles` | `/profiles…` | 3 |
+  | `ticks` | `GET /ticks`, `limits.max_tick_monitors` | 3 |
 
 ## Endpoints
 
@@ -92,17 +93,19 @@ The panel calls the bridge server-side only. The bridge sends no CORS headers.
 | `GET /api/v1/servers/{uuid}/profiles` | Profiles of the server (without results) | – | 3 |
 | `GET /api/v1/servers/{uuid}/profiles/{id}` | Status, result when done | – | 3 |
 | `DELETE /api/v1/servers/{uuid}/profiles/{id}` | Cancel / discard | – | 3 |
+| `GET /api/v1/servers/{uuid}/ticks` | Approximate TPS and MSPT with a history of 10 minutes (tick monitor) | very low | 3 |
 
 ### `GET /api/v1/status`
 
 Node level, for the bridge test button and detection. Same authentication. Examples:
 [`node-status.json`](examples/node-status.json) (all features),
-[`node-status-m1.json`](examples/node-status-m1.json) and [`node-status-m2.json`](examples/node-status-m2.json)
-(what a milestone-1 / milestone-2 bridge reports).
+[`node-status-m1.json`](examples/node-status-m1.json), [`node-status-m2.json`](examples/node-status-m2.json) and
+[`node-status-m3.json`](examples/node-status-m3.json) (what a milestone-1 / milestone-2 bridge and one with
+profiles but without the tick monitor report).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `bridge_version` | string | semver, e.g. `0.1.0` |
+| `bridge_version` | string | semver, e.g. `0.2.0` |
 | `api_version` | integer | `1` |
 | `features` | string[] | see [Versioning](#versioning) |
 | `started_at` | Unix ms | start of the bridge process |
@@ -111,6 +114,7 @@ Node level, for the bridge test button and detection. Same authentication. Examp
 | `tls` | bool | the bridge serves HTTPS |
 | `limits.max_concurrent_profiles` | integer | profiles at the same time on this node |
 | `limits.max_profile_seconds` | integer | upper bound of `seconds` in `POST /profiles` |
+| `limits.max_tick_monitors` | integer | tick monitors at the same time on this node (feature `ticks`; older bridges omit it) |
 
 ### `GET /status`
 
@@ -496,11 +500,14 @@ Idle detection is up to the panel: with `wall` the `Server thread` is sampled ev
 frames below `MinecraftServer.waitUntilNextTick` / `waitForTasks` are idle time between ticks.
 The method names depend on the mappings, see below.
 
+While a profile runs, the [tick monitor](#get-ticks) of that server pauses (`suspended`): async-profiler
+has one session per JVM. The profile stops it before starting; it resumes on its own afterwards.
+
 ### Tick and idle methods
 
 The names of the tick and idle methods of the `Server thread` in each mapping the server can run with.
-The panel uses them for the idle time of a profile, the tick monitor (`GET /ticks`, coming) for the
-method it measures; both keep the same table. Checked against Mojang's server mappings, Fabric's
+The panel uses them for the idle time of a profile, the [tick monitor](#get-ticks) for its load and the
+method it counts; both keep the same table. Checked against Mojang's server mappings, Fabric's
 intermediary and MCPConfig (2026-10-25), and against the profiles in `testdata/`.
 
 A stack (root first) is looked at from the root: the **first** frame of a class ending in
@@ -521,7 +528,7 @@ the profiler couldn't walk).
   `java/lang/Thread.sleep` is idle; it counts as `mcp`.
 - **Not covered:** obfuscated vanilla before 26.1 and Spigot/Paper before 1.20.5 (method names change
   with every version). No idle detection there: the panel shows no tick load, the tick monitor answers
-  `unsupported`.
+  `unsupported` (`unknown_mapping`).
 - `waitForTasks` is a method of `BlockableEventLoop` (`class_1255` in intermediary,
   `ThreadTaskExecutor` in mcp); `MinecraftServer` overrides it in newer versions. Only the frame of
   `MinecraftServer` counts for the decision above.
@@ -529,6 +536,87 @@ the profiler couldn't walk).
 Seen in the profiles (`testdata/`): Fabric without players 520 of 599 samples idle, Fabric with
 Immersive Snow 28 resp. 52 of 1200 (the mod waits for chunks inside the tick), the Forge 1.12 modpack
 17 of 1196 (`Thread.sleep` in `run`).
+
+### `GET /ticks`
+
+Feature `ticks`. Approximate TPS and MSPT of the server for a display under the console, with a
+history of 10 minutes. Poll every 5 s while the console is open. Answers within milliseconds; the
+measuring runs in the background.
+
+Examples: [`ticks-starting.json`](examples/ticks-starting.json) (first call), [`ticks.json`](examples/ticks.json),
+[`ticks-paused.json`](examples/ticks-paused.json), [`ticks-overloaded.json`](examples/ticks-overloaded.json),
+[`ticks-suspended.json`](examples/ticks-suspended.json), [`ticks-unsupported.json`](examples/ticks-unsupported.json),
+[`ticks-jvm-starting.json`](examples/ticks-jvm-starting.json).
+Errors: as `/vm` plus `attach_unavailable` (except `jvm_starting`, which is the state `starting`),
+`attach_failed`, `attach_timeout`, `insufficient_tmp_space` (as for profiles, 4 MiB plus the library),
+`too_many_tick_monitors`, `not_implemented`. Errors are only returned while the monitor starts; later
+failures show up as `state: "error"` and the monitor tries again in the next window.
+
+**Monitor.** The first call starts a tick monitor for the server (attach listener as for the other
+attach endpoints, then async-profiler as for profiles). It ends when no call came for
+`idle_timeout_ms` (60 s, the console was closed), when the JVM ends, or with the bridge. A new JVM
+(other PID or start time) starts a new monitor with an empty history. At most `max_tick_monitors`
+monitors run on a node (`mpa-bridge.yml`, default 10); they don't count against `max_concurrent_profiles`.
+Files in the container's `/tmp`: `mpa-ticks-<id>.collapsed` and `.log` for a few milliseconds per
+window, removed right away and when the monitor ends.
+
+**How it measures** (checked against a JVM with a tick loop like Minecraft's: 10, 30 and 70 ms of work
+per tick were measured as 10.0 ms, 30.0 ms and 14.2 TPS):
+
+- `sampling` (default): async-profiler samples only the `Server thread` (wall clock, every
+  `interval_ms` = 20 ms, about 250 samples per window). Samples in an idle method (see
+  [Tick and idle methods](#tick-and-idle-methods)) are idle time, the rest is tick work.
+  `load_percent` is the share of tick work; at 20 TPS `tick_time_ms = load × 50 ms` and `tps` is
+  **assumed** to be `target_tps` (20; `/tick rate` is not taken into account). At 95 % load and more
+  the samples can't tell the TPS: the window is `overloaded` with `tps` and `tick_time_ms` `null`,
+  and the monitor switches to counting.
+- `counting`: async-profiler counts the calls of `MinecraftServer.tickServer` (the name of the
+  mapping). `tps` is exact; with no idle time left a tick takes `tick_time_ms = duration / ticks`.
+  When the server keeps up again (`tps` ≥ 19.5) the window has `tps` but `tick_time_ms` `null`, and the
+  monitor goes back to sampling, for at least 6 windows. Switching instruments the class
+  `MinecraftServer` (a short safepoint), so it only happens when the server is overloaded.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sampled_at` | Unix ms | |
+| `state` | enum | `starting` · `ok` · `paused` · `suspended` · `unsupported` · `error`, see below |
+| `reason` | enum, nullable | `starting`: `first_window` (no window measured yet) or `jvm_starting` (JVM younger than 30 s, listener not running; no monitor started); `suspended`: `profile_running`; `unsupported`: `no_server_thread` or `unknown_mapping`; else `null` |
+| `method` | enum, nullable | `sampling` · `counting`: what the monitor measures right now; `null` while it doesn't (suspended, unsupported, error) |
+| `mapping` | enum, nullable | mapping of the tick loop as recognised in the samples: `mojmap` · `intermediary` · `srg` · `mcp`; `null` until known |
+| `target_tps` | integer | `20` |
+| `window_ms` | integer | `5000` |
+| `interval_ms` | integer | sampling interval, `20` |
+| `idle_timeout_ms` | integer | `60000` |
+| `monitor_started_at` | Unix ms, nullable | start of this monitor (= of its history); `null` for `jvm_starting` |
+| `current` | window, nullable | the last entry of `history`, `null` without one |
+| `history[]` | array | windows, oldest first, at most 120 (10 minutes). Gaps in time are windows that measured nothing (e.g. right after the start or a profile) |
+| `error` | error object, nullable | `state: "error"` only: why the last window failed (`attach_failed`, `attach_timeout`, `insufficient_tmp_space`, `internal_error`) |
+
+`state`:
+
+| State | Meaning | What to show |
+| --- | --- | --- |
+| `starting` | monitor or JVM just started | nothing yet, poll again |
+| `ok` | `current` has values (or is `overloaded`) | TPS/MSPT |
+| `paused` | the Server thread did (almost) no tick work: `load_percent` < 0.5 %, as with `pause-when-empty-seconds` and nobody online | "paused" instead of numbers |
+| `suspended` | a profile of this server runs; the monitor resumes after it | a gap |
+| `unsupported` | `no_server_thread` (a proxy such as Velocity, or the server is still starting) or `unknown_mapping` (samples without a known tick or idle method: obfuscated versions, or the world is still loading). Not final, the monitor keeps looking | nothing |
+| `error` | the last window failed, see `error` | nothing / last values |
+
+Window (`current`, `history[]`):
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `started_at` / `ended_at` | Unix ms | the measured span |
+| `duration_ms` | number | `ended_at - started_at`, about 5000 |
+| `state` | enum | `ok` · `paused` · `suspended` · `unsupported` |
+| `method` | enum, nullable | `sampling` · `counting`; `null` for `suspended` |
+| `tps` | number, nullable | ticks per second (2 decimals); `null` when unknown (`overloaded` sampling, `paused`, `unsupported`, `suspended`) |
+| `tick_time_ms` | number, nullable | average duration of a tick (MSPT); `null` when unknown |
+| `load_percent` | number, nullable | `sampling`: share of tick work in the samples, 0–100; `null` for `counting` |
+| `overloaded` | bool | no idle time left in the tick loop (`sampling`: load ≥ 95 %; `counting`: `tps` < 19.5) |
+| `samples` | integer, nullable | `sampling`: samples of the Server thread |
+| `ticks` | integer, nullable | `counting`: calls of `tickServer` in the window |
 
 ## Errors
 
@@ -563,6 +651,7 @@ Every error has this body (example: [`error-server-not-running.json`](examples/e
 | 409 | `profile_running` | a profile is already running for this server | `profile_id` |
 | 429 | `too_many_profiles` | `max_concurrent_profiles` reached on this node | `limit` |
 | 404 | `profile_not_found` | unknown, deleted or expired profile id | – |
+| 429 | `too_many_tick_monitors` | `max_tick_monitors` reached on this node (`GET /ticks` for a server without a monitor) | `limit` |
 | 507 | `insufficient_tmp_space` | not enough free space in the container's `/tmp` for the profiler | `free_bytes`, `required_bytes` |
 | 501 | `not_implemented` | endpoint of a later milestone, see `features` | – |
 | 503 | `docker_unavailable` | Docker API not reachable | – |
@@ -581,7 +670,7 @@ All examples (except the `error-*` bodies) are recorded from the real HTTP handl
 (`Thread.print -l`, `GC.class_histogram -all`), command durations are fixed.
 Illustrative (format final, values plausible but not recorded): the `VM.flags`, `GC.heap_info` and
 `VM.metaspace` outputs behind `vm.json` and `metrics-live.json`, the stacks and GC/CPU numbers of the
-profile examples.
+profile examples, the samples and call counts behind the `ticks*` examples.
 Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms128M -Xmx1907M`).
 
 | File | Endpoint / state |
@@ -589,6 +678,7 @@ Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms1
 | `node-status.json` | `GET /api/v1/status` (all features) |
 | `node-status-m1.json` | `GET /api/v1/status` of a milestone-1 bridge |
 | `node-status-m2.json` | `GET /api/v1/status` of a milestone-2 bridge |
+| `node-status-m3.json` | `GET /api/v1/status` of a bridge with profiles, without the tick monitor (0.1.0) |
 | `status.json` | `GET /status`, ready |
 | `status-not-running.json` | `GET /status`, container stopped |
 | `status-no-java.json` | `GET /status`, no Java process |
@@ -606,4 +696,11 @@ Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms1
 | `profile-failed.json` | `GET /profiles/{id}`, failed |
 | `profiles.json` | `GET /profiles` |
 | `profiles-empty.json` | `GET /profiles`, no profiles |
+| `ticks-starting.json` | `GET /ticks`, first call: monitor started, no window yet |
+| `ticks.json` | `GET /ticks`, three windows (sampling, 4–5 ms per tick) |
+| `ticks-paused.json` | `GET /ticks`, the Server thread only waits (`pause-when-empty-seconds`) |
+| `ticks-overloaded.json` | `GET /ticks`, no idle time left: the monitor counts the ticks (about 14 TPS) |
+| `ticks-suspended.json` | `GET /ticks` while a profile runs |
+| `ticks-unsupported.json` | `GET /ticks` on a proxy (no Server thread) |
+| `ticks-jvm-starting.json` | `GET /ticks`, JVM 12 s old, listener not running |
 | `error-*.json` | one per error code |

@@ -1,0 +1,15 @@
+{
+  "sampled_at": 1792866607712,
+  "state": "starting",
+  "reason": "jvm_starting",
+  "method": null,
+  "mapping": null,
+  "target_tps": 20,
+  "window_ms": 5000,
+  "interval_ms": 20,
+  "idle_timeout_ms": 60000,
+  "monitor_started_at": null,
+  "current": null,
+  "history": [],
+  "error": null
+}

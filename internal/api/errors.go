@@ -21,6 +21,7 @@ const (
 	CodeProfileRunning       = "profile_running"
 	CodeTooManyProfiles      = "too_many_profiles"
 	CodeProfileNotFound      = "profile_not_found"
+	CodeTooManyTickMonitors  = "too_many_tick_monitors"
 	CodeInsufficientTmpSpace = "insufficient_tmp_space"
 	CodeNotImplemented       = "not_implemented"
 	CodeDockerUnavailable    = "docker_unavailable"
@@ -53,6 +54,7 @@ var Errors = []ErrorDef{
 	{CodeProfileRunning, http.StatusConflict, "A profile is already running for this server."},
 	{CodeTooManyProfiles, http.StatusTooManyRequests, "Too many profiles are running on this node."},
 	{CodeProfileNotFound, http.StatusNotFound, "No such profile (unknown, deleted or expired)."},
+	{CodeTooManyTickMonitors, http.StatusTooManyRequests, "Too many tick monitors are running on this node."},
 	{CodeInsufficientTmpSpace, http.StatusInsufficientStorage, "Not enough free space in the container's /tmp."},
 	{CodeNotImplemented, http.StatusNotImplemented, "This endpoint is not implemented by this bridge version."},
 	{CodeDockerUnavailable, http.StatusServiceUnavailable, "The Docker API is not reachable."},

@@ -84,6 +84,45 @@ func (p Proc) CPUTicks(pid int) (int64, error) {
 	return u + s, nil
 }
 
+// ErrNoThread means the process has no thread of that name.
+var ErrNoThread = errors.New("container: no such thread")
+
+// ThreadID returns the native id of the thread of pid named name (the lowest,
+// if several are), from /proc/<pid>/task/<tid>/comm; Linux cuts the names to
+// 15 bytes. named is false when the JVM gives its threads no native names
+// (Java 8: every thread is "java"), then name can't be found this way.
+func (p Proc) ThreadID(pid int, name string) (tid int, named bool, err error) {
+	dir := filepath.Join(p.Root, strconv.Itoa(pid), "task")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, false, err
+	}
+	if len(name) > 15 {
+		name = name[:15]
+	}
+	for _, e := range entries {
+		id, err := strconv.Atoi(e.Name())
+		if err != nil || id == pid {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name(), "comm"))
+		if err != nil {
+			continue
+		}
+		comm := strings.TrimSuffix(string(b), "\n")
+		if comm != "java" {
+			named = true
+		}
+		if comm == name && (tid == 0 || id < tid) {
+			tid = id
+		}
+	}
+	if tid == 0 {
+		return 0, named, ErrNoThread
+	}
+	return tid, true, nil
+}
+
 // statFields splits /proc/<pid>/stat; the comm field may contain spaces and parens.
 func statFields(s string) []string {
 	open := strings.IndexByte(s, '(')

@@ -195,6 +195,10 @@ type Manager struct {
 	// (server_not_running with container_state, or no_java_process).
 	Check func(ctx context.Context, uuid string) *Error
 
+	// Yield is called before a profile starts in a JVM (Ticks.Yield): the
+	// tick monitor gives up the JVM's profiler session until release.
+	Yield func(ctx context.Context, hostPID int) (release func())
+
 	// Overridable in tests.
 	Now        func() time.Time
 	ReadHsperf func(path string) (*hsperf.Data, error)
@@ -211,10 +215,11 @@ type Manager struct {
 
 type run struct {
 	Run
-	hidden bool // starting, not visible yet
-	target Target
-	cancel context.CancelFunc
-	done   chan struct{}
+	hidden  bool // starting, not visible yet
+	target  Target
+	cancel  context.CancelFunc
+	done    chan struct{}
+	release func() // of Yield, called when the run ends
 }
 
 func (r *run) active() bool { return r.State == StateRunning || r.State == StateProcessing }
@@ -292,11 +297,16 @@ func (m *Manager) Start(ctx context.Context, t Target, req Request) (Run, error)
 	m.runs[r.ID] = r
 	m.mu.Unlock()
 
+	r.release = func() {}
+	if m.Yield != nil {
+		r.release = m.Yield(ctx, t.Attach.HostPID)
+	}
 	if err := m.start(ctx, r); err != nil {
 		m.mu.Lock()
 		delete(m.runs, r.ID)
 		m.mu.Unlock()
 		m.removeFiles(t.Attach, r.ID)
+		r.release()
 		return Run{}, err
 	}
 	m.mu.Lock()
@@ -485,6 +495,7 @@ func removeRegular(path string) {
 
 func (m *Manager) loop(ctx context.Context, r *run, before *hsperf.Data, cpu0 int64, cpuOK bool) {
 	defer close(r.done)
+	defer r.release()
 	t := r.target
 	end := m.After(r.EndsAt.Sub(m.Now()))
 	if m.Now().After(r.EndsAt) {

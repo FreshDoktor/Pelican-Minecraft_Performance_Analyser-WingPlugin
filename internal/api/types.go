@@ -16,6 +16,7 @@ const (
 	FeatureVMFlags   = "vm_flags"
 	FeatureLiveHeap  = "live_heap"
 	FeatureProfiles  = "profiles"
+	FeatureTicks     = "ticks"
 )
 
 // ErrorBody is the body of every error response.
@@ -47,6 +48,7 @@ type NodeStatusResponse struct {
 type NodeLimits struct {
 	MaxConcurrentProfiles int `json:"max_concurrent_profiles"`
 	MaxProfileSeconds     int `json:"max_profile_seconds"`
+	MaxTickMonitors       int `json:"max_tick_monitors"`
 }
 
 // BridgeInfo identifies the bridge in /status.
@@ -529,3 +531,35 @@ const (
 	WarningServerThreadMissing = "server_thread_missing"
 	WarningTruncated           = "truncated"
 )
+
+// TicksResponse is GET /ticks, the tick monitor of a server.
+type TicksResponse struct {
+	SampledAt        int64        `json:"sampled_at"`
+	State            string       `json:"state"`
+	Reason           *string      `json:"reason"`
+	Method           *string      `json:"method"`
+	Mapping          *string      `json:"mapping"`
+	TargetTPS        int          `json:"target_tps"`
+	WindowMs         int64        `json:"window_ms"`
+	IntervalMs       int          `json:"interval_ms"`
+	IdleTimeoutMs    int64        `json:"idle_timeout_ms"`
+	MonitorStartedAt *int64       `json:"monitor_started_at"`
+	Current          *TickWindow  `json:"current"`
+	History          []TickWindow `json:"history"`
+	Error            *ErrorBody   `json:"error"`
+}
+
+// TickWindow is one measured window of the tick monitor.
+type TickWindow struct {
+	StartedAt   int64    `json:"started_at"`
+	EndedAt     int64    `json:"ended_at"`
+	DurationMs  float64  `json:"duration_ms"`
+	State       string   `json:"state"`
+	Method      *string  `json:"method"`
+	TPS         *float64 `json:"tps"`
+	TickTimeMs  *float64 `json:"tick_time_ms"`
+	LoadPercent *float64 `json:"load_percent"`
+	Overloaded  bool     `json:"overloaded"`
+	Samples     *int64   `json:"samples"`
+	Ticks       *int64   `json:"ticks"`
+}

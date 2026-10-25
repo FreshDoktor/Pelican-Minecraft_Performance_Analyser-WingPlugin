@@ -33,6 +33,9 @@ const (
 	exTmpfs        = int64(100) << 20
 	exProfileID    = "c0f3e1a2b4d59687"
 	exProfileStart = int64(1792930250000)
+
+	exTickMonitorID = "5b1e0c2d9a874f36"
+	exTickStart     = int64(1792930100000)
 )
 
 func exContainer() container.Info {
@@ -59,13 +62,14 @@ func loadFixture(t *testing.T) *hsperf.Data {
 }
 
 func exFeatures() []string {
-	return []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles}
+	return []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles, FeatureTicks}
 }
 
-// Feature lists of the milestones, for node-status-m1/-m2.
+// Feature lists of the milestones, for node-status-m1/-m2/-m3.
 var (
 	featuresM1 = []string{FeatureStatus, FeatureVM, FeatureMetrics}
 	featuresM2 = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap}
+	featuresM3 = []string{FeatureStatus, FeatureVM, FeatureMetrics, FeatureThreads, FeatureHistogram, FeatureVMFlags, FeatureLiveHeap, FeatureProfiles}
 )
 
 // get runs a request against the real handlers and returns the body. Bodies
@@ -102,6 +106,7 @@ func examples(t *testing.T) map[string]any {
 	ex["node-status"] = get(t, s, "/api/v1/status", 200)
 	ex["node-status-m1"] = get(t, srv(featuresM1), "/api/v1/status", 200)
 	ex["node-status-m2"] = get(t, srv(featuresM2), "/api/v1/status", 200)
+	ex["node-status-m3"] = get(t, srv(featuresM3), "/api/v1/status", 200)
 	ex["status"] = get(t, s, base+exUUID+"/status", 200)
 	ex["status-not-running"] = get(t, s, base+uuidStopped+"/status", 200)
 	ex["status-no-java"] = get(t, s, base+uuidNoJava+"/status", 200)
@@ -122,6 +127,9 @@ func examples(t *testing.T) map[string]any {
 	for k, v := range profileExamples(t) {
 		ex[k] = v
 	}
+	for k, v := range tickExamples(t) {
+		ex[k] = v
+	}
 	for _, e := range Errors {
 		ex["error-"+strings.ReplaceAll(e.Code, "_", "-")] = newError(e.Code, "", exErrorDetails[e.Code]).body
 	}
@@ -134,6 +142,7 @@ var exErrorDetails = map[string]map[string]any{
 	CodeAttachUnavailable:    {"reason": ReasonXrs},
 	CodeProfileRunning:       {"profile_id": exProfileID},
 	CodeTooManyProfiles:      {"limit": 2},
+	CodeTooManyTickMonitors:  {"limit": 10},
 	CodeInsufficientTmpSpace: {"free_bytes": 1048576, "required_bytes": 8388608},
 }
 

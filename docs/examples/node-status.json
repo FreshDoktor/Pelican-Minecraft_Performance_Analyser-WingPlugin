@@ -1,5 +1,5 @@
 {
-  "bridge_version": "0.1.0",
+  "bridge_version": "0.2.0",
   "api_version": 1,
   "features": [
     "status",
@@ -9,7 +9,8 @@
     "histogram",
     "vm_flags",
     "live_heap",
-    "profiles"
+    "profiles",
+    "ticks"
   ],
   "started_at": 1792926210000,
   "uptime_ms": 3600000,
@@ -17,6 +18,7 @@
   "tls": false,
   "limits": {
     "max_concurrent_profiles": 2,
-    "max_profile_seconds": 120
+    "max_profile_seconds": 120,
+    "max_tick_monitors": 10
   }
 }

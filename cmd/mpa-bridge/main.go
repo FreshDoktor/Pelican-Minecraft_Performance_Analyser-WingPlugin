@@ -26,7 +26,7 @@ import (
 )
 
 // Version is set at build time with -ldflags "-X main.Version=…".
-var Version = "0.1.0"
+var Version = "0.2.0"
 
 func main() {
 	cfgPath := flag.String("config", config.DefaultBridgePath, "path of mpa-bridge.yml (optional file)")
@@ -63,8 +63,9 @@ func run(cfgPath string, log *slog.Logger) error {
 		Attach:     attacher,
 		TmpfsBytes: cfg.TmpfsSizeBytes,
 		TLS:        cfg.API.SSL.Enabled,
-		Limits:     api.NodeLimits{MaxConcurrentProfiles: cfg.MaxConcurrentProfiles, MaxProfileSeconds: cfg.MaxProfileSeconds},
-		Log:        log,
+		Limits: api.NodeLimits{MaxConcurrentProfiles: cfg.MaxConcurrentProfiles, MaxProfileSeconds: cfg.MaxProfileSeconds,
+			MaxTickMonitors: cfg.MaxTickMonitors},
+		Log: log,
 	}
 	srv.Profiles = &profile.Manager{
 		MaxConcurrent: cfg.MaxConcurrentProfiles,
@@ -75,6 +76,14 @@ func run(cfgPath string, log *slog.Logger) error {
 		Check:         srv.CheckServer,
 		Log:           log,
 	}
+	srv.Ticks = &profile.Ticks{
+		Max:      cfg.MaxTickMonitors,
+		Profiles: srv.Profiles,
+		ThreadID: proc.ThreadID,
+		Jcmd:     attacher.Jcmd,
+		Log:      log,
+	}
+	srv.Profiles.Yield = srv.Ticks.Yield
 	srv.Init()
 	// Profiler files of an earlier bridge run (profiles do not survive a restart).
 	go func() {

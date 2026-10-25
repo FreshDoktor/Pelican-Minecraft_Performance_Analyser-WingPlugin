@@ -129,3 +129,37 @@ func TestParseInspect(t *testing.T) {
 		}
 	}
 }
+
+func TestThreadID(t *testing.T) {
+	root := t.TempDir()
+	task := func(pid, tid int, comm string) {
+		write(t, filepath.Join(root, strconv.Itoa(pid), "task", strconv.Itoa(tid), "comm"), comm+"\n")
+	}
+	task(26, 26, "java")
+	task(26, 27, "java")
+	task(26, 41, "C2 CompilerThre")
+	task(26, 61, "Server thread")
+	task(26, 60, "Server thread")
+	task(26, 70, "Server Watchdog")
+	p := Proc{Root: root}
+	if tid, named, err := p.ThreadID(26, "Server thread"); tid != 60 || !named || err != nil {
+		t.Errorf("Server thread: %d %v %v", tid, named, err)
+	}
+	// Names are cut to 15 bytes, like comm.
+	if tid, _, err := p.ThreadID(26, "C2 CompilerThread0"); tid != 41 || err != nil {
+		t.Errorf("long name: %d %v", tid, err)
+	}
+	// A proxy: names, but no Server thread.
+	if _, named, err := p.ThreadID(26, "Netty Epoll Server IO #0"); !named || !errors.Is(err, ErrNoThread) {
+		t.Errorf("missing: %v %v", named, err)
+	}
+	// Java 8 names no threads.
+	task(30, 30, "java")
+	task(30, 31, "java")
+	if _, named, err := p.ThreadID(30, "Server thread"); named || !errors.Is(err, ErrNoThread) {
+		t.Errorf("java 8: %v %v", named, err)
+	}
+	if _, _, err := p.ThreadID(99, "Server thread"); err == nil {
+		t.Error("no process: no error")
+	}
+}

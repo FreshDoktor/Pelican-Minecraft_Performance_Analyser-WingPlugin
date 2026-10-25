@@ -1,0 +1,7 @@
+{
+  "error": "too_many_tick_monitors",
+  "message": "Too many tick monitors are running on this node.",
+  "details": {
+    "limit": 10
+  }
+}

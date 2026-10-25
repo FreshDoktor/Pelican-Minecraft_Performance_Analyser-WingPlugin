@@ -1,5 +1,5 @@
 {
-  "bridge_version": "0.1.0",
+  "bridge_version": "0.2.0",
   "api_version": 1,
   "features": [
     "status",
@@ -16,6 +16,7 @@
   "tls": false,
   "limits": {
     "max_concurrent_profiles": 2,
-    "max_profile_seconds": 120
+    "max_profile_seconds": 120,
+    "max_tick_monitors": 10
   }
 }

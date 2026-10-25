@@ -78,14 +78,14 @@ func testServer(t *testing.T) *Server {
 
 	c := &clock{t: time.UnixMilli(exBridgeStart)}
 	s := &Server{
-		Version:    "0.1.0",
+		Version:    "0.2.0",
 		Creds:      config.StaticCredentials(testTokenID, testToken),
 		Docker:     fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
 		Proc:       fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
 		Attach:     newFakeAttach(t, c),
 		Features:   exFeatures(),
 		TmpfsBytes: exTmpfs,
-		Limits:     NodeLimits{MaxConcurrentProfiles: 2, MaxProfileSeconds: 120},
+		Limits:     NodeLimits{MaxConcurrentProfiles: 2, MaxProfileSeconds: 120, MaxTickMonitors: 10},
 		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now:        c.Now,
 		HostCPUs:   exHostCPUs,
@@ -116,6 +116,17 @@ func testServer(t *testing.T) *Server {
 		NewID:         func() string { return exProfileID },
 		Log:           s.Log,
 	}
+	s.Ticks = &profile.Ticks{
+		Max:      10,
+		Profiles: s.Profiles,
+		ThreadID: func(int, string) (int, bool, error) { return 60, true, nil },
+		Jcmd:     f.Jcmd,
+		Now:      c.Now,
+		Every:    f.timers.Every,
+		NewID:    func() string { return exTickMonitorID },
+		Log:      s.Log,
+	}
+	s.Profiles.Yield = s.Ticks.Yield
 	s.Init()
 	c.Set(time.UnixMilli(exNow))
 	return s
@@ -392,7 +403,7 @@ func TestPaused(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	s := testServer(t)
-	ua := "MPA Bridge/v0.1.0 (id:" + testTokenID + ")"
+	ua := "MPA Bridge/v0.2.0 (id:" + testTokenID + ")"
 	path := "/api/v1/servers/" + uuidRunning + "/status"
 	for name, c := range map[string]struct {
 		header string

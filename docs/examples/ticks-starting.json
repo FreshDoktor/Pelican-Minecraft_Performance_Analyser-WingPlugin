@@ -1,0 +1,15 @@
+{
+  "sampled_at": 1792930100000,
+  "state": "starting",
+  "reason": "first_window",
+  "method": "sampling",
+  "mapping": null,
+  "target_tps": 20,
+  "window_ms": 5000,
+  "interval_ms": 20,
+  "idle_timeout_ms": 60000,
+  "monitor_started_at": 1792930100000,
+  "current": null,
+  "history": [],
+  "error": null
+}

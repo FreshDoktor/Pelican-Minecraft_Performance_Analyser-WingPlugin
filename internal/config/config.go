@@ -27,6 +27,7 @@ type Bridge struct {
 	Port                  int      `yaml:"port"`
 	MaxConcurrentProfiles int      `yaml:"max_concurrent_profiles"`
 	MaxProfileSeconds     int      `yaml:"max_profile_seconds"`
+	MaxTickMonitors       int      `yaml:"max_tick_monitors"`
 	AllowedIPs            []string `yaml:"allowed_ips"`
 	WingsConfig           string   `yaml:"wings_config"`
 	DockerSocket          string   `yaml:"docker_socket"`
@@ -106,6 +107,9 @@ func (c *Config) applyDefaults() {
 	if c.MaxProfileSeconds == 0 {
 		c.MaxProfileSeconds = 120
 	}
+	if c.MaxTickMonitors == 0 {
+		c.MaxTickMonitors = 10
+	}
 	if c.WingsConfig == "" {
 		c.WingsConfig = DefaultWingsPath
 	}
@@ -129,6 +133,9 @@ func (c *Config) validate() error {
 	}
 	if c.MaxProfileSeconds < 1 || c.MaxProfileSeconds > 3600 {
 		return errors.New("max_profile_seconds must be between 1 and 3600")
+	}
+	if c.MaxTickMonitors < 1 {
+		return errors.New("max_tick_monitors must be at least 1")
 	}
 	c.Allowed = nil
 	for _, s := range c.AllowedIPs {
