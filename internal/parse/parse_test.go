@@ -86,6 +86,37 @@ func TestThreadDumpFixture(t *testing.T) {
 	}
 }
 
+// Fabric server with mods (Immersive Snow), frames with intermediary names and
+// a mixin handler. The dump has no "<pid>:" line in front.
+func TestThreadDumpFabricFixture(t *testing.T) {
+	d := ParseThreadDump(readFixture(t, "threads-fabric-mods.txt"))
+	if d.Timestamp != "2026-10-25 19:32:53" || len(d.Threads) != 48 || *d.JNIGlobal != 45 || *d.JNIWeak != 45 || len(d.Deadlocks) != 0 {
+		t.Fatalf("header %q, threads %d", d.Timestamp, len(d.Threads))
+	}
+	var st *Thread
+	for i := range d.Threads {
+		if d.Threads[i].Name == "Server thread" {
+			st = &d.Threads[i]
+		}
+	}
+	if st == nil {
+		t.Fatal("no Server thread")
+	}
+	if *st.JavaID != 44 || *st.CPUMs != 40972.79 || st.State != "TIMED_WAITING" || st.StateDetail != "parking" || len(st.Stack) != 32 {
+		t.Fatalf("%+v", st)
+	}
+	// Waits for a chunk inside the tick of Immersive Snow.
+	if f := st.Stack[4]; f.Method != "net.minecraft.class_3215.getChunkBlocking" {
+		t.Errorf("frame 4 %+v", f)
+	}
+	if f := st.Stack[18]; f.Method != "straywave.minecraft.immersivesnow.ImmersiveSnowEvents.onWorldTick" || f.File != "ImmersiveSnowEvents.java" || *f.Line != 51 {
+		t.Errorf("frame 18 %+v", f)
+	}
+	if f := st.Stack[22]; f.Method != "net.minecraft.class_3218.handler$bha000$fabric-lifecycle-events-v1$startWorldTick" {
+		t.Errorf("mixin frame %+v", f)
+	}
+}
+
 func TestThreadDumpDeadlock(t *testing.T) {
 	dump := `2026-10-25 13:00:00
 Full thread dump OpenJDK 64-Bit Server VM (25.0.4.1+1-LTS mixed mode, sharing):

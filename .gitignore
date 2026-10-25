@@ -9,3 +9,8 @@ PLAN.md
 
 # JVM crash logs from local tests
 hs_err_pid*.log
+
+# Full profiles from the node (1-2 MB each, all threads); copies cut down to the
+# Server thread are committed as testdata/profile-*.json
+/testdata/profile-c66c6fa5-*.json
+/testdata/profil-*.json

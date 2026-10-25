@@ -1,0 +1,479 @@
+{
+  "id": "8ab103f232f515e8",
+  "server_uuid": "c66c6fa5-e4cb-4b89-b85a-1694105c6daa",
+  "mode": "wall",
+  "seconds": 30,
+  "interval_ms": 50,
+  "alloc_interval_bytes": null,
+  "state": "done",
+  "started_at": 1792952347579,
+  "ends_at": 1792952377579,
+  "finished_at": 1792952377596,
+  "elapsed_ms": 30017,
+  "progress": 1,
+  "expires_at": 1792953277596,
+  "error": null,
+  "result": {
+    "duration_ms": 30009.862,
+    "unit": "samples",
+    "interval_ms": 50,
+    "total": 599,
+    "warnings": [],
+    "threads": [
+      {
+        "name": "Server thread",
+        "tid": 65,
+        "count": 599,
+        "stacks": [
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/class_1255.method_20813;java/util/concurrent/locks/LockSupport.parkNanos;jdk/internal/misc/Unsafe.park;Unsafe_Park;Parker::park;pthread_cond_timedwait;/usr/lib/x86_64-linux-gnu/libc.so.6",
+            "count": 491
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3786;net/minecraft/server/MinecraftServer.method_27901;net/minecraft/class_5322.method_29196;net/minecraft/class_5322.method_29194;net/minecraft/class_1937.method_8497;net/minecraft/class_1937.method_8402;net/minecraft/class_3215.method_12121;net/minecraft/class_3215.getChunkBlocking;net/minecraft/class_1255.method_18857;net/minecraft/class_1255.method_20813;java/util/concurrent/locks/LockSupport.parkNanos;jdk/internal/misc/Unsafe.park;Unsafe_Park;Parker::park;pthread_cond_timedwait;/usr/lib/x86_64-linux-gnu/libc.so.6",
+            "count": 56
+          },
+          {
+            "stack": "[GC_active];Unsafe_Park;Parker::park;SafepointMechanism::process;SafepointSynchronize::block;syscall",
+            "count": 15
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;net/minecraft/class_3900$$Lambda.0x000000002072c6c8.run;net/minecraft/class_3900.method_17634;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x000000002081caf0.apply;net/minecraft/class_3898.method_20460;com/mojang/datafixers/util/Either.mapLeft;com/mojang/datafixers/util/Either$Left.map;com/mojang/datafixers/util/Either$$Lambda.0x0000000020722490.apply;com/mojang/datafixers/util/Either.lambda$mapLeft$0;net/minecraft/class_3898$$Lambda.0x000000002081d1a0.apply;net/minecraft/class_3898.method_17227;net/minecraft/class_3898.handler$bhb000$fabric-lifecycle-events-v1$onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents$$Lambda.0x000000001ff3aab0.onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents.lambda$static$0;folk/sisby/surveyor/Surveyor$$Lambda.0x00000000202be318.onChunkLoad;folk/sisby/surveyor/terrain/WorldTerrainSummary.onChunkLoad;folk/sisby/surveyor/terrain/WorldTerrainSummary.put;folk/sisby/surveyor/terrain/RegionSummary.putChunk;folk/sisby/surveyor/terrain/ChunkSummary.<init>",
+            "count": 6
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;net/minecraft/class_3900$$Lambda.0x000000002072c6c8.run;net/minecraft/class_3900.method_17634;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x000000002081caf0.apply;net/minecraft/class_3898.method_20460;com/mojang/datafixers/util/Either.mapLeft;com/mojang/datafixers/util/Either$Left.map;com/mojang/datafixers/util/Either$$Lambda.0x0000000020722490.apply;com/mojang/datafixers/util/Either.lambda$mapLeft$0;net/minecraft/class_3898$$Lambda.0x000000002081d1a0.apply;net/minecraft/class_3898.method_17227;net/minecraft/class_3898.handler$bhb000$fabric-lifecycle-events-v1$onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents$$Lambda.0x000000001ff3aab0.onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents.lambda$static$0;com/kneelawk/graphlib/impl/GraphLibFabricMod$$Lambda.0x000000001ff97c88.onChunkLoad;com/kneelawk/graphlib/impl/GraphLibFabricMod.lambda$onInitialize$1;com/kneelawk/graphlib/impl/graph/ServerGraphWorldStorage.onWorldChunkLoad;com/kneelawk/graphlib/impl/graph/simple/SimpleServerGraphWorld.onWorldChunkLoad;com/kneelawk/graphlib/impl/graph/simple/SimpleServerGraphWorld.loadGraphs;com/kneelawk/graphlib/api/world/UnloadingRegionBasedStorage.getIfExists;java/util/concurrent/CompletableFuture.join;java/util/concurrent/CompletableFuture.waitingGet;java/util/concurrent/ForkJoinPool.managedBlock;java/util/concurrent/ForkJoinPool.unmanagedBlock;java/util/concurrent/CompletableFuture$Signaller.block;java/util/concurrent/locks/LockSupport.park;jdk/internal/misc/Unsafe.park;Unsafe_Park;Parker::park;pthread_cond_wait;/usr/lib/x86_64-linux-gnu/libc.so.6",
+            "count": 3
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniCompose.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020706da0.apply;net/minecraft/class_3898.mdd1b889$modernfix$lambda$useLegacySchedulingLogic$1$0;net/minecraft/class_3898.method_20617;net/minecraft/class_3898.method_17220;net/minecraft/class_156.method_33791;java/util/ArrayList.toArray;checkcast_arraycopy_uninit",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniCompose.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020706da0.apply;net/minecraft/class_3898.mdd1b889$modernfix$lambda$useLegacySchedulingLogic$1$0;net/minecraft/class_3898.method_20617;net/minecraft/class_3898.method_17220;net/minecraft/class_1923.method_8324",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_2248.method_9510;net/minecraft/class_1937.method_8320;net/minecraft/class_1937.method_8497;net/minecraft/class_1937.method_8402;net/minecraft/class_3215.method_12121",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_3610.method_15770;net/minecraft/class_3609.method_15778;net/minecraft/class_3609.method_15725;net/minecraft/class_3609.method_15744;net/minecraft/class_3609.method_15726;net/minecraft/class_3609.method_15727;net/minecraft/class_3610.method_15761;net/minecraft/class_3621$class_3623.method_15779",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_3215.method_16155;net/minecraft/class_3204.method_15892;java/lang/Iterable.forEach;net/minecraft/class_3204$$Lambda.0x0000000020702a38.accept;net/minecraft/class_3204.method_15891;net/minecraft/class_3193.method_14007;net/minecraft/class_3898.method_17247;net/minecraft/class_3898.method_17220;net/minecraft/class_3193.method_13993;net/minecraft/class_3898.method_17236;net/minecraft/class_3898.handler$cnl000$modernfix$useLegacySchedulingLogic;net/minecraft/class_3193.method_13993;net/minecraft/class_3898.method_17236;net/minecraft/class_3898.handler$cnl000$modernfix$useLegacySchedulingLogic;net/minecraft/class_3193.method_13993;net/minecraft/class_3898.method_17236;net/minecraft/class_3898.method_20617;net/minecraft/class_3898.method_17220;net/minecraft/class_3193.method_39967;java/util/concurrent/CompletableFuture.thenCombine;java/util/concurrent/CompletableFuture.biApplyStage",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_2248.method_9510;net/minecraft/class_1937.method_8320;net/minecraft/class_2791.method_12006",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3786;net/minecraft/class_3218.<init>;net/minecraft/class_2881.<init>;net/minecraft/class_2881.<init>;java/util/Optional.orElseGet;net/minecraft/class_2881$$Lambda.0x00000000208262a8.get;net/minecraft/class_2881.method_52229;com/google/common/collect/Range.<clinit>;java/lang/ClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.tryLoadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.getPostMixinClassByteArray;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.getPreMixinClassByteArray;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.getRawClassByteArray;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.findResourceFwd;java/net/URLClassLoader.findResource;jdk/internal/loader/URLClassPath.findResource;jdk/internal/loader/URLClassPath$JarLoader.findResource;jdk/internal/loader/URLClassPath$JarLoader.getResource;java/util/jar/JarFile.getJarEntry;java/util/jar/JarFile.getEntry;java/util/zip/ZipFile.getEntry;java/util/zip/ZipFile$Source.getEntryPos",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniCompose.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020706da0.apply;net/minecraft/class_3898.mdd1b889$modernfix$lambda$useLegacySchedulingLogic$1$0;net/minecraft/class_3898.method_20617;net/minecraft/class_3898.method_17220",
+            "count": 1
+          },
+          {
+            "stack": "[not_walkable_Java];Interpreter",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_3610.method_15770;net/minecraft/class_3609.method_15778;net/minecraft/class_3609.method_15725;net/minecraft/class_3609.method_15727;net/minecraft/class_3609.method_15732;java/lang/ThreadLocal.get;java/lang/ThreadLocal.get;java/lang/ThreadLocal.setInitialValue;java/lang/ThreadLocal$SuppliedThreadLocal.initialValue;net/minecraft/class_3609$$Lambda.0x000000001f481460.get;net/minecraft/class_3609.method_15735;InterpreterRuntime::_new;InstanceKlass::initialize_impl;InstanceKlass::link_class_impl;InstanceKlass::link_class_impl;Verifier::verify;ClassVerifier::verify_class",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_2248.method_9510;net/minecraft/class_4970$class_4971.method_26191;net/minecraft/class_2488.method_9559;net/minecraft/class_4970$class_4971.method_26184;net/minecraft/class_2488.method_9558;net/minecraft/class_4970$class_4971.method_26164;net/minecraft/class_6880$class_6883.method_40220",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774",
+            "count": 1
+          },
+          {
+            "stack": "[unknown_Java];I2C/C2I adapters",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_3610.method_15770;net/minecraft/class_3609.method_15778;net/minecraft/class_3609.method_15725;net/minecraft/class_3609.method_15727;net/minecraft/class_3609.method_15732;java/lang/ThreadLocal.get;java/lang/ThreadLocal.get;java/lang/ThreadLocal.setInitialValue;java/lang/ThreadLocal$SuppliedThreadLocal.initialValue;net/minecraft/class_3609$$Lambda.0x000000001f481460.get;net/minecraft/class_3609.method_15735;java/lang/ClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.tryLoadClass;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.defineClassFwd;java/security/SecureClassLoader.defineClass;java/lang/ClassLoader.defineClass;java/lang/ClassLoader.defineClass1;Java_java_lang_ClassLoader_defineClass1;JVM_DefineClassWithSource;jvm_define_class_common;SystemDictionary::resolve_class_from_stream;KlassFactory::create_from_stream;ClassFileParser::ClassFileParser;ClassFileParser::parse_stream;ClassFileParser::parse_interfaces;SystemDictionary::resolve_with_circularity_detection;Dictionary::find_class",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3786;net/minecraft/class_3218.<init>;net/minecraft/class_2881.<init>;net/minecraft/class_2881.<init>;java/util/Optional.orElseGet;net/minecraft/class_2881$$Lambda.0x00000000208262a8.get;net/minecraft/class_2881.method_52229;com/google/common/collect/Range.<clinit>;java/lang/ClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.tryLoadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.getPostMixinClassByteArray;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.getPreMixinClassByteArray;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.getRawClassByteArray;java/io/FilterInputStream.read;java/io/FilterInputStream.read;java/util/zip/InflaterInputStream.read;java/util/zip/ZipFile$ZipFileInflaterInputStream.fill;java/util/zip/ZipFile$ZipFileInputStream.read;java/util/zip/ZipFile$ZipFileInputStream.initDataOffset;java/util/zip/ZipFile$Source.readFullyAt;java/io/RandomAccessFile.readFully;java/io/RandomAccessFile.read;java/io/RandomAccessFile.readBytes;java/io/RandomAccessFile.readBytes0;readBytes;handleRead;read",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_3610.method_15770;net/minecraft/class_3609.method_15778;net/minecraft/class_3609.method_15725;net/minecraft/class_3609.method_15727;net/minecraft/class_3609.method_15732;net/minecraft/class_4970$class_4971.method_26220;net/minecraft/class_4970$class_4971.handler$deh000$passablefoliage$pfoliage_getCollisionShape",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_2248.method_9510;net/minecraft/class_1937.method_8320",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_3610.method_15770;net/minecraft/class_3609.method_15778;net/minecraft/class_3609.method_15725;net/minecraft/class_3609.method_15727",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3786;net/minecraft/server/MinecraftServer.method_27901;net/minecraft/class_5322.method_29196;net/minecraft/class_5322.method_29194;net/minecraft/class_1937.method_8497;net/minecraft/class_1937.method_8402;net/minecraft/class_3215.method_12121;net/minecraft/class_3215.getChunkBlocking;net/minecraft/class_1255.method_18857;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;net/minecraft/class_3900$$Lambda.0x000000002072c6c8.run;net/minecraft/class_3900.method_17634;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x000000002081caf0.apply;net/minecraft/class_3898.method_20460;com/mojang/datafixers/util/Either.mapLeft;com/mojang/datafixers/util/Either$Left.map;com/mojang/datafixers/util/Either$$Lambda.0x0000000020722490.apply;com/mojang/datafixers/util/Either.lambda$mapLeft$0;net/minecraft/class_3898$$Lambda.0x000000002081d1a0.apply;net/minecraft/class_3898.method_17227;InterpreterRuntime::_new;InstanceKlass::initialize_impl;InstanceKlass::link_class_impl;DeoptimizationScope::deoptimize_marked;Deoptimization::deoptimize_all_marked;CodeCache::make_marked_nmethods_deoptimized;Mutex::lock_without_safepoint_check",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_2248.method_9510;net/minecraft/class_4970$class_4971.method_26191;net/minecraft/class_2320.method_9559;net/minecraft/class_2261.method_9559;net/minecraft/class_4970$class_4971.method_26184;net/minecraft/class_2320.method_9558;net/minecraft/class_2261.method_9558;net/minecraft/class_2261.method_9695",
+            "count": 1
+          },
+          {
+            "stack": "[unknown_Java];java/lang/invoke/MethodHandle.invokeBasic",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;net/minecraft/class_3898$$Lambda.0x000000002081c000.run;net/minecraft/class_3898.method_20443;net/minecraft/class_3204.method_20444;net/minecraft/class_3204.method_17645;it/unimi/dsi/fastutil/longs/Long2ObjectOpenHashMap.remove",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x0000000020829d20.apply;net/minecraft/class_3898.method_17222;com/mojang/datafixers/util/Either$Left.ifLeft;net/minecraft/class_3898$$Lambda.0x0000000020833308.accept;net/minecraft/class_3898.method_18711;net/minecraft/class_2818.method_12221;net/minecraft/class_1937.method_8652;net/minecraft/class_1937.method_30092;net/minecraft/class_1937.method_8500;net/minecraft/class_1937.method_22350",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_3215.method_16155;net/minecraft/class_3204.method_15892;java/lang/Iterable.forEach;net/minecraft/class_3204$$Lambda.0x0000000020702a38.accept;net/minecraft/class_3204.method_15891;net/minecraft/class_3193.method_14007;net/minecraft/class_3898.method_17247;net/minecraft/class_3898.method_17220;net/minecraft/class_3193.method_13993;java/util/concurrent/atomic/AtomicReferenceArray.get;java/lang/invoke/VarHandleGuards.guard_LI_L;java/lang/Class.cast",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniCompose.tryFire;java/util/concurrent/CompletableFuture.postFire;java/util/concurrent/CompletableFuture.postComplete;java/util/concurrent/CompletableFuture$CoCompletion.tryFire",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3786;net/minecraft/server/MinecraftServer.method_27901;net/minecraft/class_5322.method_29196;net/minecraft/class_5322.method_29194;net/minecraft/class_1937.method_8497;net/minecraft/class_1937.method_8402;net/minecraft/class_3215.method_12121;net/minecraft/class_3215.getChunkBlocking;net/minecraft/class_1255.method_18857;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;net/minecraft/class_3900$$Lambda.0x000000002072c6c8.run;net/minecraft/class_3900.method_17634;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x000000002081caf0.apply;net/minecraft/class_3898.method_20460;com/mojang/datafixers/util/Either.mapLeft;com/mojang/datafixers/util/Either$Left.map;com/mojang/datafixers/util/Either$$Lambda.0x0000000020722490.apply;com/mojang/datafixers/util/Either.lambda$mapLeft$0;net/minecraft/class_3898$$Lambda.0x000000002081d1a0.apply;net/minecraft/class_3898.method_17227;net/minecraft/class_3898.handler$bhb000$fabric-lifecycle-events-v1$onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents$$Lambda.0x000000001ff3aab0.onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents.lambda$static$0;folk/sisby/surveyor/Surveyor$$Lambda.0x00000000202be318.onChunkLoad;folk/sisby/surveyor/terrain/WorldTerrainSummary.onChunkLoad;folk/sisby/surveyor/terrain/WorldTerrainSummary.put;folk/sisby/surveyor/terrain/RegionSummary.putChunk;folk/sisby/surveyor/terrain/ChunkSummary.<init>;java/lang/ClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.loadClass;net/fabricmc/loader/impl/launch/knot/KnotClassDelegate.tryLoadClass;net/fabricmc/loader/impl/launch/knot/KnotClassLoader.defineClassFwd;java/security/SecureClassLoader.defineClass;java/lang/ClassLoader.defineClass;java/lang/ClassLoader.defineClass1;Java_java_lang_ClassLoader_defineClass1;JVM_DefineClassWithSource;jvm_define_class_common;SystemDictionary::resolve_class_from_stream;KlassFactory::create_from_stream;ClassFileParser::ClassFileParser;ClassFileParser::parse_stream;ClassFileParser::parse_methods;ClassFileParser::parse_method;Method::allocate;/usr/lib/x86_64-linux-gnu/libc.so.6",
+            "count": 1
+          },
+          {
+            "stack": "java/lang/Thread.run;java/lang/Thread.runWith;net/minecraft/server/MinecraftServer$$Lambda.0x0000000020627920.run;net/minecraft/server/MinecraftServer.method_29739;net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;net/minecraft/server/MinecraftServer.method_3774;net/minecraft/server/MinecraftServer.method_16208;net/minecraft/class_1255.method_18857;net/minecraft/server/MinecraftServer.method_16075;net/minecraft/server/MinecraftServer.method_20415;net/minecraft/class_3215.method_19492;net/minecraft/class_3215$class_4212.method_16075;net/minecraft/class_1255.method_16075;net/minecraft/class_3215$class_4212.method_18859;net/minecraft/class_1255.method_18859;net/minecraft/class_3900$$Lambda.0x000000002072c6c8.run;net/minecraft/class_3900.method_17634;java/util/concurrent/CompletableFuture$Completion.run;java/util/concurrent/CompletableFuture$UniApply.tryFire;net/minecraft/class_3898$$Lambda.0x000000002081caf0.apply;net/minecraft/class_3898.method_20460;com/mojang/datafixers/util/Either.mapLeft;com/mojang/datafixers/util/Either$Left.map;com/mojang/datafixers/util/Either$$Lambda.0x0000000020722490.apply;com/mojang/datafixers/util/Either.lambda$mapLeft$0;net/minecraft/class_3898$$Lambda.0x000000002081d1a0.apply;net/minecraft/class_3898.method_17227;net/minecraft/class_3898.handler$bhb000$fabric-lifecycle-events-v1$onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents$$Lambda.0x000000001ff3aab0.onChunkLoad;net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents.lambda$static$0;folk/sisby/surveyor/Surveyor$$Lambda.0x00000000202be318.onChunkLoad;folk/sisby/surveyor/terrain/WorldTerrainSummary.onChunkLoad;folk/sisby/surveyor/terrain/WorldTerrainSummary.put;folk/sisby/surveyor/terrain/RegionSummary.putChunk;folk/sisby/surveyor/terrain/ChunkSummary.<init>;net/minecraft/class_2382.method_10264",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "gc": {
+      "count": 47,
+      "time_ms": 862.923,
+      "collectors": [
+        {
+          "index": 0,
+          "name": "Serial young collection pauses",
+          "kind": "young",
+          "time_is_pause": true,
+          "count": 47,
+          "time_ms": 862.923
+        },
+        {
+          "index": 1,
+          "name": "Serial full collection pauses",
+          "kind": "full",
+          "time_is_pause": true,
+          "count": 0,
+          "time_ms": 0
+        }
+      ],
+      "pauses": [
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 288.006,
+          "duration_ms": 13.693
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 1495.148,
+          "duration_ms": 12.101
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 2477.612,
+          "duration_ms": 13.898
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 3183.954,
+          "duration_ms": 7.514
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 4485.027,
+          "duration_ms": 169.793
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 5686.941,
+          "duration_ms": 45.016
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 6517.957,
+          "duration_ms": 4.988
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 7388.513,
+          "duration_ms": 4.499
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 7901.484,
+          "duration_ms": 6.016
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 8419.013,
+          "duration_ms": 5.458
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 9606.107,
+          "duration_ms": 8.478
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 10105.748,
+          "duration_ms": 5.749
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 10998.566,
+          "duration_ms": 76.439
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 11707.235,
+          "duration_ms": 11.044
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 12189.17,
+          "duration_ms": 11.371
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 12907.726,
+          "duration_ms": 11.518
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 13198.758,
+          "duration_ms": 10.574
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 13584.172,
+          "duration_ms": 11.647
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 14194.653,
+          "duration_ms": 10.176
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 14986.882,
+          "duration_ms": 11.962
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 15608.518,
+          "duration_ms": 11.451
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 16298.899,
+          "duration_ms": 13.823
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 17006.648,
+          "duration_ms": 9.617
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 17507.995,
+          "duration_ms": 12.417
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 18597.64,
+          "duration_ms": 24.079
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 19281.867,
+          "duration_ms": 13.901
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 19784.012,
+          "duration_ms": 13.774
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 20290.455,
+          "duration_ms": 11.054
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 20628.35,
+          "duration_ms": 13.572
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 20989.129,
+          "duration_ms": 10.686
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 21295.066,
+          "duration_ms": 11.703
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 21906.302,
+          "duration_ms": 15.264
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 22583.872,
+          "duration_ms": 12.841
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 23190.431,
+          "duration_ms": 17.572
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 23613.882,
+          "duration_ms": 11.974
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 24013.079,
+          "duration_ms": 10.706
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 24822.138,
+          "duration_ms": 13.863
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 25374.441,
+          "duration_ms": 11.33
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 25639.385,
+          "duration_ms": 9.74
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 25896.816,
+          "duration_ms": 34.065
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 26697.294,
+          "duration_ms": 22.184
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 27304.922,
+          "duration_ms": 5.45
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 27916.772,
+          "duration_ms": 6.273
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 28209.053,
+          "duration_ms": 6.907
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 28777.182,
+          "duration_ms": 11.05
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 29448.158,
+          "duration_ms": 10.227
+        },
+        {
+          "collector_index": 0,
+          "kind": "young",
+          "start_offset_ms": 29917.805,
+          "duration_ms": 65.453
+        }
+      ],
+      "pauses_complete": true
+    },
+    "safepoints": {
+      "count": 48,
+      "time_ms": 865.564
+    },
+    "cpu": {
+      "process_ms": 30490,
+      "process_percent": 101.6
+    }
+  }
+}
