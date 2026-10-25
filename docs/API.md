@@ -113,7 +113,7 @@ Node level, for the bridge test button and detection. Same authentication. Examp
 ### `GET /status`
 
 Always `200` as long as the container exists (also when it is stopped), so the panel can show the
-state. `404 server_not_found` otherwise. Reads only Docker, `/proc` and hsperfdata.
+state. `404 server_not_found` otherwise, `503 docker_unavailable` if Docker cannot be reached. Reads only Docker, `/proc` and hsperfdata.
 
 Examples: [`status.json`](examples/status.json) (ready),
 [`status-not-running.json`](examples/status-not-running.json),
