@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -153,6 +154,85 @@ func TestStartRetriesLeftoverProfiler(t *testing.T) {
 		t.Errorf("opts %v state %s", l.opts, r.State)
 	}
 	m.Delete("u", r.ID)
+}
+
+// finishedRun is a done profile of uuid that finished at fin.
+func finishedRun(id, uuid string, fin time.Time) *run {
+	return &run{Run: Run{ID: id, ServerUUID: uuid, State: StateDone, StartedAt: fin.Add(-10 * time.Second),
+		FinishedAt: fin, ExpiresAt: fin.Add(Retention), Result: &Result{}}, done: make(chan struct{})}
+}
+
+func runIDs(m *Manager) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var ids []string
+	for id := range m.runs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return strings.Join(ids, ",")
+}
+
+func TestStartDropsOldestFinished(t *testing.T) {
+	m, tg := newManager(t)
+	now := time.Unix(1_700_000_000, 0)
+	m.Now = func() time.Time { return now }
+	m.Poll = func() (<-chan time.Time, func()) { return nil, func() {} }
+	m.After = func(time.Duration) <-chan time.Time { return nil }
+	m.NewID = func() string { return "00000000000000c3" }
+	for _, r := range []*run{
+		finishedRun("a1", "u", now.Add(-3*time.Minute)),
+		finishedRun("a2", "u", now.Add(-time.Minute)),
+		finishedRun("b1", "v", now.Add(-4*time.Minute)),
+		finishedRun("b2", "v", now.Add(-2*time.Minute)),
+	} {
+		m.runs[r.ID] = r
+	}
+	m.runs["a1"].State, m.runs["a1"].Result = StateFailed, nil // failed ones count the same
+	hs := ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}
+	r, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: hs}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The third run of u drops its oldest; v keeps both.
+	if got := runIDs(m); got != "00000000000000c3,a2,b1,b2" {
+		t.Errorf("kept %s", got)
+	}
+	// The running one blocks a new start and nothing is dropped.
+	if _, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: hs}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50}); err == nil {
+		t.Error("second start while running")
+	}
+	if got := runIDs(m); got != "00000000000000c3,a2,b1,b2" {
+		t.Errorf("kept %s after a refused start", got)
+	}
+	m.Delete("u", r.ID)
+}
+
+func TestDropOldestKeepsActive(t *testing.T) {
+	m, _ := newManager(t)
+	now := time.Unix(1_700_000_000, 0)
+	// The active run is the oldest (no finished_at yet), it stays anyway.
+	p := &run{Run: Run{ID: "p", ServerUUID: "u", State: StateProcessing, StartedAt: now.Add(-time.Hour)}}
+	m.runs["p"] = p
+	for _, r := range []*run{finishedRun("d1", "u", now.Add(-2*time.Minute)), finishedRun("d2", "u", now.Add(-time.Minute))} {
+		m.runs[r.ID] = r
+	}
+	m.mu.Lock()
+	m.dropOldestLocked("u")
+	m.mu.Unlock()
+	if got := runIDs(m); got != "d2,p" {
+		t.Errorf("kept %s", got)
+	}
+	// Only active runs left over the limit: nothing to drop, no endless loop.
+	delete(m.runs, "d2")
+	m.runs["q"] = &run{Run: Run{ID: "q", ServerUUID: "u", State: StateRunning}}
+	m.runs["r"] = &run{Run: Run{ID: "r", ServerUUID: "u", State: StateRunning}}
+	m.mu.Lock()
+	m.dropOldestLocked("u")
+	m.mu.Unlock()
+	if got := runIDs(m); got != "p,q,r" {
+		t.Errorf("kept %s", got)
+	}
 }
 
 func TestGCTracker(t *testing.T) {

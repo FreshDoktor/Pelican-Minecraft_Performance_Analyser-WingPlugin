@@ -474,6 +474,10 @@ How a profile runs (nothing of the request except the checked numbers and the mo
   server console. Both are deleted after every run, on `DELETE`, and when the bridge starts.
 - Profiles live in the memory of the bridge. A restart of the bridge loses them; on start it stops a
   profiler that is still active and removes leftover `mpa-*` files (never the library).
+- The bridge keeps at most **2 profiles per server**, running and finished together. A finished
+  profile is kept 15 minutes (`expires_at`) unless a new one starts earlier: then the oldest finished
+  or failed ones are dropped (`404 profile_not_found`) until there is room, so the newest finished
+  one survives the next start. A running profile is never dropped. The panel stores results itself.
 
 #### `POST /profiles`
 
@@ -527,7 +531,7 @@ result. `204 No Content` on success, `404 profile_not_found` otherwise.
 | `finished_at` | Unix ms, nullable | when `done`/`failed` was reached |
 | `elapsed_ms` | integer | since `started_at` (until `finished_at`) |
 | `progress` | number | 0–1 (`elapsed_ms / (seconds·1000)`, capped at 1) |
-| `expires_at` | Unix ms, nullable | finished profiles are kept 15 minutes, then 404; `null` while running. The panel stores results itself |
+| `expires_at` | Unix ms, nullable | finished profiles are kept 15 minutes, then 404 (earlier if dropped by a newer one, see [Profiles](#profiles)); `null` while running. The panel stores results itself |
 | `error` | error object, nullable | `failed` only: same shape as [error responses](#errors): `server_not_running` (`details.container_state`, the server stopped), `no_java_process` (the JVM ended, container still running), `attach_failed`, `attach_timeout`, `output_too_large` |
 | `result` | object, nullable | `done` only, see below |
 

@@ -36,7 +36,11 @@ const (
 
 // Limits and defaults.
 const (
-	Retention          = 15 * time.Minute
+	Retention = 15 * time.Minute
+	// MaxPerServer is how many profiles of a server are kept, running and
+	// finished together: a new one drops the oldest finished ones, which
+	// bounds the memory of results (up to MaxOutput parsed each).
+	MaxPerServer       = 2
 	AllocIntervalBytes = 512 << 10
 	MaxOutput          = 32 << 20
 	// tmpReserve is the free space required in /tmp besides the library.
@@ -358,6 +362,7 @@ func (m *Manager) start(ctx context.Context, r *run) error {
 	r.EndsAt = r.StartedAt.Add(time.Duration(r.Seconds) * time.Second)
 	r.hidden = false
 	r.cancel = cancel
+	m.dropOldestLocked(r.ServerUUID)
 	m.mu.Unlock()
 	m.Log.Info("profile started", "id", r.ID, "uuid", t.ServerUUID, "mode", r.Mode, "seconds", r.Seconds)
 	go m.loop(runCtx, r, before, cpu0, cpuErr == nil)
@@ -647,6 +652,36 @@ func (m *Manager) expireLocked() {
 			delete(m.runs, id)
 		}
 	}
+}
+
+// dropOldestLocked drops the oldest finished or failed runs of a server until
+// at most MaxPerServer are kept. Active runs are never dropped; a server has
+// at most one, so there is always room.
+func (m *Manager) dropOldestLocked(uuid string) {
+	for {
+		kept := 0
+		var oldest *run
+		for _, r := range m.runs {
+			if r.ServerUUID != uuid {
+				continue
+			}
+			kept++
+			if !r.active() && (oldest == nil || r.finishedBefore(oldest)) {
+				oldest = r
+			}
+		}
+		if kept <= MaxPerServer || oldest == nil {
+			return
+		}
+		delete(m.runs, oldest.ID)
+	}
+}
+
+func (r *run) finishedBefore(o *run) bool {
+	if !r.FinishedAt.Equal(o.FinishedAt) {
+		return r.FinishedAt.Before(o.FinishedAt)
+	}
+	return r.StartedAt.Before(o.StartedAt)
 }
 
 // Get returns a profile of the server.
