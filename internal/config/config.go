@@ -1,5 +1,5 @@
-// Package config reads the bridge's mpa-bridge.yml (with its own token) and
-// the Wings configuration (token id, TLS, tmpfs size).
+// Package config reads the bridge's mpa-bridge.yml (with its own token and
+// TLS settings) and the Wings configuration (token id, TLS, tmpfs size).
 package config
 
 import (
@@ -19,6 +19,16 @@ import (
 const (
 	DefaultBridgePath = "/etc/pelican/mpa-bridge.yml"
 	DefaultWingsPath  = "/etc/pelican/config.yml"
+	// The self-signed certificate the bridge creates on its first start.
+	DefaultSelfSignedCert = "/etc/pelican/mpa-bridge.crt"
+	DefaultSelfSignedKey  = "/etc/pelican/mpa-bridge.key"
+)
+
+// Sources of the certificate the bridge serves, see CertFiles.
+const (
+	CertOwn        = "own"         // tls.cert and tls.key
+	CertWings      = "wings"       // api.ssl of Wings
+	CertSelfSigned = "self-signed" // created by the bridge
 )
 
 // MinTokenLength is the minimum length of the bridge token.
@@ -37,6 +47,22 @@ type Bridge struct {
 	WingsConfig           string   `yaml:"wings_config"`
 	DockerSocket          string   `yaml:"docker_socket"`
 	ProcRoot              string   `yaml:"proc_root"`
+	TLS                   TLS      `yaml:"tls"`
+}
+
+// TLS is the tls section of mpa-bridge.yml. The bridge serves HTTPS unless
+// Disable is set, see CertFiles.
+type TLS struct {
+	// Cert and Key are an own certificate (PEM, the chain in Cert).
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
+	// Disable serves plain HTTP, e.g. behind a proxy on the node that
+	// terminates TLS. The token then crosses the network in cleartext.
+	Disable bool `yaml:"disable"`
+	// SelfSignedCert and SelfSignedKey are where the self-signed certificate
+	// is kept (default /etc/pelican/mpa-bridge.crt and .key).
+	SelfSignedCert string `yaml:"self_signed_cert"`
+	SelfSignedKey  string `yaml:"self_signed_key"`
 }
 
 // Wings holds the fields of /etc/pelican/config.yml the bridge uses. The Wings
@@ -133,6 +159,12 @@ func (c *Config) applyDefaults() {
 	if c.ProcRoot == "" {
 		c.ProcRoot = "/proc"
 	}
+	if c.TLS.SelfSignedCert == "" {
+		c.TLS.SelfSignedCert = DefaultSelfSignedCert
+	}
+	if c.TLS.SelfSignedKey == "" {
+		c.TLS.SelfSignedKey = DefaultSelfSignedKey
+	}
 }
 
 func (c *Config) validate() error {
@@ -154,6 +186,12 @@ func (c *Config) validate() error {
 	if c.MaxTickMonitors < 1 {
 		return errors.New("max_tick_monitors must be at least 1")
 	}
+	if (c.TLS.Cert == "") != (c.TLS.Key == "") {
+		return errors.New("tls: cert and key go together, set both or neither")
+	}
+	if c.TLS.Disable && c.TLS.Cert != "" {
+		return errors.New("tls: disable and cert/key exclude each other")
+	}
 	c.Allowed = nil
 	for _, s := range c.AllowedIPs {
 		p, err := ParsePrefix(s)
@@ -163,6 +201,23 @@ func (c *Config) validate() error {
 		c.Allowed = append(c.Allowed, p)
 	}
 	return nil
+}
+
+// CertFiles returns the certificate and key the bridge serves and their
+// source: tls.cert and tls.key, else the Wings certificate if Wings serves
+// HTTPS (api.ssl.enabled), else the self-signed pair, which the bridge creates
+// on its first start. ok is false with tls.disable: plain HTTP.
+func (c *Config) CertFiles() (source, cert, key string, ok bool) {
+	switch {
+	case c.TLS.Disable:
+		return "", "", "", false
+	case c.TLS.Cert != "":
+		return CertOwn, c.TLS.Cert, c.TLS.Key, true
+	case c.API.SSL.Enabled:
+		return CertWings, c.API.SSL.Cert, c.API.SSL.Key, true
+	default:
+		return CertSelfSigned, c.TLS.SelfSignedCert, c.TLS.SelfSignedKey, true
+	}
 }
 
 // ParsePrefix parses an IP ("10.0.0.5") or CIDR ("10.0.0.0/24").

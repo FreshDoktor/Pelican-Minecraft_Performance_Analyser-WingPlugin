@@ -174,6 +174,55 @@ func TestLoadDefaultsAndBridgeFile(t *testing.T) {
 	}
 }
 
+func TestCertFiles(t *testing.T) {
+	t.Setenv("MPA_BRIDGE_TOKEN", "")
+	dir := t.TempDir()
+	plain := wings(t, "abc")
+	ssl := writeFile(t, t.TempDir(), "config.yml", strings.Replace(fmt.Sprintf(wingsYAML, "abc"), "enabled: false", "enabled: true", 1))
+	load := func(wp, tlsYAML string) (*Config, error) {
+		t.Helper()
+		return Load(writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\ntoken: "+testToken+"\n"+tlsYAML))
+	}
+	const own = "tls:\n  cert: /etc/ssl/bridge.pem\n  key: /etc/ssl/bridge.key\n"
+	const wingsCert, wingsKey = "/etc/letsencrypt/live/wing.example.com/fullchain.pem", "/etc/letsencrypt/live/wing.example.com/privkey.pem"
+	cases := []struct {
+		name, wings, tls  string
+		source, cert, key string
+		ok                bool
+	}{
+		{"own before wings", ssl, own, CertOwn, "/etc/ssl/bridge.pem", "/etc/ssl/bridge.key", true},
+		{"own without wings", plain, own, CertOwn, "/etc/ssl/bridge.pem", "/etc/ssl/bridge.key", true},
+		{"wings", ssl, "", CertWings, wingsCert, wingsKey, true},
+		{"self-signed", plain, "", CertSelfSigned, DefaultSelfSignedCert, DefaultSelfSignedKey, true},
+		{"self-signed elsewhere", plain, "tls:\n  self_signed_cert: /srv/b.crt\n  self_signed_key: /srv/b.key\n", CertSelfSigned, "/srv/b.crt", "/srv/b.key", true},
+		{"disabled", plain, "tls:\n  disable: true\n", "", "", "", false},
+		{"disabled despite wings", ssl, "tls:\n  disable: true\n", "", "", "", false},
+	}
+	for _, tc := range cases {
+		c, err := load(tc.wings, tc.tls)
+		if err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		source, cert, key, ok := c.CertFiles()
+		if source != tc.source || cert != tc.cert || key != tc.key || ok != tc.ok {
+			t.Errorf("%s: %q %q %q %v", tc.name, source, cert, key, ok)
+		}
+	}
+
+	for _, bad := range []string{
+		"tls:\n  cert: /etc/ssl/bridge.pem\n",
+		"tls:\n  key: /etc/ssl/bridge.key\n",
+		"tls:\n  disable: true\n  cert: /etc/ssl/bridge.pem\n  key: /etc/ssl/bridge.key\n",
+		"tls:\n  disable: true\n  cert: /etc/ssl/bridge.pem\n",
+		"tls:\n  disable: true\n  key: /etc/ssl/bridge.key\n",
+	} {
+		if _, err := load(plain, bad); err == nil || !strings.Contains(err.Error(), "tls") {
+			t.Errorf("%q must fail: %v", bad, err)
+		}
+	}
+}
+
 func TestCredentialsReload(t *testing.T) {
 	t.Setenv("MPA_BRIDGE_TOKEN", "")
 	t.Setenv("WINGS_TOKEN_ID", "")
