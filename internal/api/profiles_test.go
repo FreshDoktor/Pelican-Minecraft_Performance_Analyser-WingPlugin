@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
@@ -36,7 +37,7 @@ func postStatus(t *testing.T, s *Server, uuid, body string) (int, ErrorBody, Pro
 func tmpFiles(t *testing.T, s *Server) []string {
 	t.Helper()
 	java, _ := s.Proc.(fakeProc)[exContainer().PID]
-	es, _ := os.ReadDir(java.TmpDir)
+	es, _ := os.ReadDir(java.Tmp.Root)
 	var out []string
 	for _, e := range es {
 		out = append(out, e.Name())
@@ -155,7 +156,7 @@ func TestProfileLimits(t *testing.T) {
 	info.UUID, info.PID = uuid2, 6000
 	s.Docker.(fakeDocker)[uuid2] = info
 	java := s.Proc.(fakeProc)[exContainer().PID]
-	java.TmpDir = t.TempDir()
+	java.Tmp = ctmp.Dir{Root: t.TempDir()}
 	s.Proc.(fakeProc)[6000] = java
 	ids := []string{"0000000000000001", "0000000000000002"}
 	s.Profiles.NewID = func() string { id := ids[0]; ids = ids[1:]; return id }
@@ -195,7 +196,7 @@ func TestProfileLimits(t *testing.T) {
 
 	// JVM too young: no signal, no load.
 	s = testServer(t)
-	s.SocketExists = func(string) bool { return false }
+	s.SocketExists = func(ctmp.File) bool { return false }
 	f, c := fakes(s)
 	c.Set(time.UnixMilli(exJVMStart + 5000))
 	if code, e, _ := postStatus(t, s, uuidRunning, `{"seconds": 10}`); code != 409 || e.Error != CodeAttachUnavailable || f.starts != 0 || len(f.loadCalls()) != 0 {
@@ -207,9 +208,9 @@ func TestCleanupAll(t *testing.T) {
 	s := testServer(t)
 	java := s.Proc.(fakeProc)[exContainer().PID]
 	for _, n := range []string{"mpa-0123456789abcdef.collapsed", "mpa-0123456789abcdef.log", profile.LibName, "other.txt"} {
-		os.WriteFile(filepath.Join(java.TmpDir, n), []byte("x"), 0o644)
+		os.WriteFile(filepath.Join(java.Tmp.Root, n), []byte("x"), 0o644)
 	}
-	os.Mkdir(filepath.Join(java.TmpDir, "mpa-dir"), 0o755)
+	os.Mkdir(filepath.Join(java.Tmp.Root, "mpa-dir"), 0o755)
 	s.CleanupAll(t.Context(), listFunc(func() []string { return []string{uuidRunning, uuidStopped, uuidMissing} }))
 	got := tmpFiles(t, s)
 	if strings.Join(got, ",") != "mpa-dir,"+profile.LibName+",other.txt" {

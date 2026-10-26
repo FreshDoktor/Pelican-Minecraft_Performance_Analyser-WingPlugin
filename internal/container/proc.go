@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 )
 
 // ErrNoJava means no java process runs in the container.
@@ -17,15 +19,15 @@ var ErrNoJava = errors.New("container: no java process")
 // JavaProcess is the JVM found in a container.
 type JavaProcess struct {
 	HostPID int
-	NSPID   int    // PID inside the container (last value of NSpid)
-	User    string // from /tmp/hsperfdata_<user>; empty if no hsperfdata file
-	Hsperf  string // host path of the hsperfdata file, empty if none
-	TmpDir  string // host path of the container's /tmp
+	NSPID   int       // PID inside the container (last value of NSpid)
+	User    string    // from /tmp/hsperfdata_<user>; empty if no hsperfdata file
+	Hsperf  ctmp.File // the hsperfdata file, zero if none
+	Tmp     ctmp.Dir  // the container's /tmp
 }
 
-// AttachSocket is the host path of the attach socket (/tmp/.java_pid<ns-pid>).
-func (j JavaProcess) AttachSocket() string {
-	return filepath.Join(j.TmpDir, ".java_pid"+strconv.Itoa(j.NSPID))
+// AttachSocket is the attach socket (/tmp/.java_pid<ns-pid>).
+func (j JavaProcess) AttachSocket() ctmp.File {
+	return ctmp.File{Dir: j.Tmp, Name: ".java_pid" + strconv.Itoa(j.NSPID)}
 }
 
 // Proc reads a procfs mounted at Root ("/proc" in production, a fake tree in tests).
@@ -53,7 +55,7 @@ func (p Proc) FindJava(initPID int) (JavaProcess, error) {
 		if p.isJava(pid) {
 			j, err := p.javaProcess(pid)
 			if err == nil {
-				if j.Hsperf != "" {
+				if !j.Hsperf.IsZero() {
 					return j, nil
 				}
 				if first == nil {
@@ -251,20 +253,20 @@ func (p Proc) javaProcess(pid int) (JavaProcess, error) {
 			}
 		}
 	}
-	j.TmpDir = filepath.Join(p.Root, strconv.Itoa(pid), "root", "tmp")
+	j.Tmp = ctmp.Tmp(filepath.Join(p.Root, strconv.Itoa(pid), "root"))
 	// The user inside the container depends on the Wings config (and rootless
 	// mode), so search hsperfdata_*/<ns-pid> instead of hard-coding it. The
-	// container controls these paths: never follow symlinks (an absolute link
-	// would resolve against the host root).
-	entries, _ := os.ReadDir(j.TmpDir)
-	for _, e := range entries {
-		if !e.IsDir() || !strings.HasPrefix(e.Name(), "hsperfdata_") {
+	// container controls these paths: ctmp follows no symlink, also not when
+	// the file is read again later.
+	names, _ := j.Tmp.Names()
+	for _, n := range names {
+		if !strings.HasPrefix(n, "hsperfdata_") {
 			continue
 		}
-		m := filepath.Join(j.TmpDir, e.Name(), strconv.Itoa(j.NSPID))
-		if st, err := os.Lstat(m); err == nil && st.Mode().IsRegular() {
-			j.Hsperf = m
-			j.User = strings.TrimPrefix(e.Name(), "hsperfdata_")
+		f := ctmp.File{Dir: j.Tmp.Sub(n), Name: strconv.Itoa(j.NSPID)}
+		if m, err := f.Dir.Mode(f.Name); err == nil && m.IsRegular() {
+			j.Hsperf = f
+			j.User = strings.TrimPrefix(n, "hsperfdata_")
 			break
 		}
 	}

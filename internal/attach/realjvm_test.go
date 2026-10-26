@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 )
 
@@ -32,7 +33,7 @@ func TestRealJVM(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("java host pid %d, ns pid %d, user %q, hsperf %s", j.HostPID, j.NSPID, j.User, j.Hsperf)
-	if j.Hsperf == "" {
+	if j.Hsperf.IsZero() {
 		t.Fatal("no hsperfdata")
 	}
 	d, err := hsperf.ReadFile(j.Hsperf)
@@ -43,15 +44,15 @@ func TestRealJVM(t *testing.T) {
 	t.Logf("hsperf: %d entries, java %s, gc %s", d.Len(), v, d.GCType())
 
 	c := New(32 << 20)
-	tg := Target{HostPID: j.HostPID, NSPID: j.NSPID, TmpDir: j.TmpDir}
+	tg := Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	wasRunning := SocketExists(tg.Socket())
 	if err := c.Start(ctx, tg); err != nil {
 		t.Fatal("start:", err)
 	}
-	t.Logf("listener was running: %v; trigger left behind: %v", wasRunning, exists(tg.trigger()))
-	if exists(tg.trigger()) {
+	t.Logf("listener was running: %v; trigger left behind: %v", wasRunning, exists(tg.Tmp, tg.trigger()))
+	if exists(tg.Tmp, tg.trigger()) {
 		t.Error("trigger file not removed")
 	}
 	out := os.Getenv("MPA_REAL_JVM_OUT")
@@ -81,7 +82,7 @@ func TestRealJVM(t *testing.T) {
 	}
 }
 
-func exists(p string) bool { _, err := os.Lstat(p); return err == nil }
+func exists(d ctmp.Dir, name string) bool { _, err := d.Mode(name); return err == nil }
 
 func firstLine(s string) string {
 	l, _, _ := strings.Cut(s, "\n")

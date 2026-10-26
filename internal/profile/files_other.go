@@ -2,10 +2,12 @@
 
 package profile
 
-import "os"
+import (
+	"os"
 
-func openNoFollow(path string) (*os.File, error) { return os.Open(path) }
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
+)
 
-func freeBytes(string) (int64, bool) { return 0, false }
+func freeBytes(ctmp.Dir) (int64, bool) { return 0, false }
 
 func ownedByRoot(os.FileInfo) bool { return true }

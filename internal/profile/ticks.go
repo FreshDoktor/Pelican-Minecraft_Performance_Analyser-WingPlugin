@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -431,10 +429,10 @@ func (m *monitor) begin(ctx context.Context) error {
 	m.tid = tid
 	if !m.prepared {
 		need := int64(tickTmpReserve)
-		if _, err := os.Lstat(filepath.Join(t.Attach.TmpDir, LibName)); err != nil {
+		if _, err := t.Attach.Tmp.Mode(LibName); err != nil {
 			need += int64(len(k.Profiles.Lib))
 		}
-		if free, ok := k.Profiles.FreeBytes(t.Attach.TmpDir); ok && free < need {
+		if free, ok := k.Profiles.FreeBytes(t.Attach.Tmp); ok && free < need {
 			return &TmpSpaceError{Free: free, Required: need}
 		}
 		if err := k.Profiles.ensureLib(t.Attach); err != nil {
@@ -545,13 +543,13 @@ func (m *monitor) stopSession(ctx context.Context, t Target) {
 }
 
 func (m *monitor) readLog(t Target) string {
-	b, _ := m.k.Profiles.readFile(filepath.Join(t.Attach.TmpDir, "mpa-ticks-"+m.id+".log"), 4096)
+	b, _ := readFile(t.Attach.Tmp, "mpa-ticks-"+m.id+".log", 4096)
 	return string(b)
 }
 
 // output reads and removes the collapsed output of the last command.
 func (m *monitor) output(t Target) string {
-	b, truncated := m.k.Profiles.readFile(filepath.Join(t.Attach.TmpDir, "mpa-ticks-"+m.id+".collapsed"), tickMaxOutput)
+	b, truncated := readFile(t.Attach.Tmp, "mpa-ticks-"+m.id+".collapsed", tickMaxOutput)
 	m.removeFiles(t)
 	if truncated {
 		if i := strings.LastIndexByte(string(b), '\n'); i >= 0 {
@@ -563,7 +561,7 @@ func (m *monitor) output(t Target) string {
 
 func (m *monitor) removeFiles(t Target) {
 	for _, ext := range []string{".collapsed", ".log"} {
-		removeRegular(filepath.Join(t.Attach.TmpDir, "mpa-ticks-"+m.id+ext))
+		t.Attach.Tmp.Remove("mpa-ticks-" + m.id + ext)
 	}
 }
 

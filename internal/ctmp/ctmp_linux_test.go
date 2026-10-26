@@ -7,7 +7,10 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -211,4 +214,101 @@ func TestProcRoot(t *testing.T) {
 	if _, err := (Dir{Root: "/proc/self/root", Path: "proc/self"}).Names(); err == nil {
 		t.Error("followed the /proc/self symlink")
 	}
+}
+
+// TestNamespace goes through /proc/<pid>/root of a process in its own mount
+// namespace with a tmpfs /tmp, like a container: the absolute symlink
+// /tmp/evil -> /etc resolves against the host's root when followed.
+func TestNamespace(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Skip("needs root")
+	}
+	if _, err := exec.LookPath("unshare"); err != nil {
+		t.Skip("no unshare")
+	}
+	cmd := exec.Command("unshare", "--mount", "--pid", "--fork", "--propagation", "private", "sh", "-c",
+		"mount -t tmpfs tmpfs /tmp && mkdir /tmp/hsperfdata_x && echo container > /tmp/hsperfdata_x/26 && "+
+			"ln -s /etc /tmp/evil && ln -s /etc /tmp/hsperfdata_y && exec sleep 30")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cmd.Process.Kill(); cmd.Wait() }()
+	var root string
+	for i := 0; i < 200 && root == ""; i++ {
+		time.Sleep(10 * time.Millisecond)
+		root = childRoot(cmd.Process.Pid)
+	}
+	if root == "" {
+		t.Fatal("no child of unshare")
+	}
+	tmp := Tmp(root)
+	var f *os.File
+	var err error
+	for i := 0; i < 200; i++ {
+		if f, err = tmp.Sub("hsperfdata_x").Open("26"); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(f)
+	f.Close()
+	if string(b) != "container\n" {
+		t.Errorf("read %q", b)
+	}
+	// What the kernel does with a path: the host's /etc.
+	if _, err := os.Stat(filepath.Join(root, "tmp", "evil", "passwd")); err != nil {
+		t.Skip("symlink not followed to the host here:", err)
+	}
+	if _, err := tmp.Sub("evil").Names(); err == nil {
+		t.Error("listed the host's /etc")
+	}
+	if f, err := tmp.Sub("hsperfdata_y").Open("passwd"); err == nil {
+		f.Close()
+		t.Error("opened the host's /etc/passwd")
+	}
+	if names, err := tmp.Names(); err != nil || len(names) != 3 {
+		t.Errorf("names %v %v", names, err)
+	}
+
+	// A socket in the container's /tmp.
+	l, err := net.Listen("unix", filepath.Join(root, "tmp", ".java_pid26"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	go func() {
+		if c, err := l.Accept(); err == nil {
+			io.WriteString(c, "0\n")
+			c.Close()
+		}
+	}()
+	c, err := tmp.Dial(context.Background(), ".java_pid26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ = io.ReadAll(c)
+	c.Close()
+	if string(b) != "0\n" {
+		t.Errorf("socket read %q", b)
+	}
+}
+
+// childRoot is /proc/<pid>/root of the first child of ppid.
+func childRoot(ppid int) string {
+	names, _ := filepath.Glob("/proc/[0-9]*/status")
+	for _, n := range names {
+		b, err := os.ReadFile(n)
+		if err != nil {
+			continue
+		}
+		for _, l := range strings.Split(string(b), "\n") {
+			if v, ok := strings.CutPrefix(l, "PPid:"); ok && strings.TrimSpace(v) == strconv.Itoa(ppid) {
+				return filepath.Join(filepath.Dir(n), "root")
+			}
+		}
+	}
+	return ""
 }

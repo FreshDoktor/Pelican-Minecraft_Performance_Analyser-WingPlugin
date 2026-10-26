@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 )
 
 // fakeJVM is an attach listener speaking protocol 1 like HotSpot.
@@ -75,14 +77,14 @@ func testClient(max int64) *Client {
 	c := New(max)
 	c.Signal = func(int) error { return errors.New("no signal expected") }
 	// Windows reports AF_UNIX socket files differently; existence is enough here.
-	c.SocketExists = func(p string) bool { _, err := os.Lstat(p); return err == nil }
+	c.SocketExists = func(f ctmp.File) bool { _, err := f.Dir.Mode(f.Name); return err == nil }
 	return c
 }
 
 func TestJcmd(t *testing.T) {
 	dir := t.TempDir()
-	tg := Target{HostPID: 4711, NSPID: 26, TmpDir: dir}
-	f := listen(t, tg.Socket(), func(a []string) string {
+	tg := Target{HostPID: 4711, NSPID: 26, Tmp: ctmp.Dir{Root: dir}}
+	f := listen(t, tg.Socket().String(), func(a []string) string {
 		switch a[2] {
 		case "Thread.print -l":
 			return "0\n2026-10-25 13:09:43\nFull thread dump ...\n"
@@ -124,7 +126,7 @@ func TestJcmd(t *testing.T) {
 	if _, err := c.Execute(ctx, tg, "load", "a", "b", "c", "d"); !errors.Is(err, ErrProtocol) {
 		t.Errorf("4 args: %v", err)
 	}
-	missing := Target{HostPID: 1, NSPID: 99, TmpDir: dir}
+	missing := Target{HostPID: 1, NSPID: 99, Tmp: ctmp.Dir{Root: dir}}
 	if _, err := c.Jcmd(ctx, missing, "Thread.print -l"); !errors.Is(err, ErrNotRunning) {
 		t.Errorf("no socket: %v", err)
 	}
@@ -132,7 +134,7 @@ func TestJcmd(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	dir := t.TempDir()
-	tg := Target{HostPID: 4711, NSPID: 26, TmpDir: dir}
+	tg := Target{HostPID: 4711, NSPID: 26, Tmp: ctmp.Dir{Root: dir}}
 	c := testClient(1 << 20)
 	var signalled []int
 	var triggerSeen bool
@@ -143,7 +145,7 @@ func TestStart(t *testing.T) {
 		triggerSeen = err == nil
 		go func() {
 			time.Sleep(50 * time.Millisecond)
-			listen(t, tg.Socket(), func([]string) string { return "0\nok\n" })
+			listen(t, tg.Socket().String(), func([]string) string { return "0\nok\n" })
 		}()
 		return nil
 	}
@@ -167,7 +169,7 @@ func TestStart(t *testing.T) {
 
 func TestStartTimeout(t *testing.T) {
 	dir := t.TempDir()
-	tg := Target{HostPID: 4711, NSPID: 26, TmpDir: dir}
+	tg := Target{HostPID: 4711, NSPID: 26, Tmp: ctmp.Dir{Root: dir}}
 	c := testClient(1 << 20)
 	c.StartTimeout = 100 * time.Millisecond
 	c.Signal = func(int) error { return nil } // the JVM never reacts
@@ -181,7 +183,7 @@ func TestStartTimeout(t *testing.T) {
 
 func TestStartRejectsPlantedTrigger(t *testing.T) {
 	dir := t.TempDir()
-	tg := Target{HostPID: 4711, NSPID: 26, TmpDir: dir}
+	tg := Target{HostPID: 4711, NSPID: 26, Tmp: ctmp.Dir{Root: dir}}
 	if err := os.Mkdir(filepath.Join(dir, ".attach_pid26"), 0o755); err != nil {
 		t.Fatal(err)
 	}

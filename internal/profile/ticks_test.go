@@ -15,6 +15,7 @@ import (
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 )
 
 // fixtureCollapsed turns the Server thread of a profile fixture back into
@@ -148,7 +149,7 @@ func (l *tickLoader) Load(_ context.Context, t attach.Target, _, options string)
 	}
 	for _, o := range strings.Split(options, ",") {
 		if f, ok := strings.CutPrefix(o, "file=/tmp/"); ok && out != nil {
-			os.WriteFile(filepath.Join(t.TmpDir, f), []byte(out(options)), 0o644)
+			os.WriteFile(filepath.Join(t.Tmp.Root, f), []byte(out(options)), 0o644)
 		}
 	}
 	return nil
@@ -173,13 +174,13 @@ func newTicks(t *testing.T) (*Ticks, *tickLoader, *testClock, Target) {
 	l := &tickLoader{}
 	c := &testClock{t: time.UnixMilli(1792930000000)}
 	m := &Manager{MaxConcurrent: 2, Lib: []byte("library v1"), Loader: l, ProcRoot: t.TempDir(), Now: c.Now,
-		FreeBytes: func(string) (int64, bool) { return 1 << 30, true }}
+		FreeBytes: func(ctmp.Dir) (int64, bool) { return 1 << 30, true }}
 	k := &Ticks{Max: 2, Profiles: m, Now: c.Now, NewID: func() string { return "00000000000000aa" },
 		ThreadID: func(int, string) (int, bool, error) { return 60, true, nil },
 		Every:    func(time.Duration) (<-chan time.Time, func()) { return nil, func() {} }}
 	m.Yield = k.Yield
-	tg := Target{ServerUUID: "s1", Attach: attach.Target{HostPID: 4242, NSPID: 26, TmpDir: t.TempDir()},
-		Hsperf: "../../testdata/mpa-hsperf.bin", JVMStartedAt: 1792866595712}
+	tg := Target{ServerUUID: "s1", Attach: attach.Target{HostPID: 4242, NSPID: 26, Tmp: ctmp.Dir{Root: t.TempDir()}},
+		Hsperf: ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}, JVMStartedAt: 1792866595712}
 	return k, l, c, tg
 }
 
@@ -249,7 +250,7 @@ func TestTicksModes(t *testing.T) {
 	if s.State != TickStateStarting || s.Reason != TickReasonFirstWindow || s.Method != TickMethodSampling {
 		t.Fatalf("first: %+v", s)
 	}
-	if b, _ := os.ReadFile(filepath.Join(tg.Attach.TmpDir, LibName)); string(b) != "library v1" {
+	if b, _ := os.ReadFile(filepath.Join(tg.Attach.Tmp.Root, LibName)); string(b) != "library v1" {
 		t.Errorf("library %q", b)
 	}
 	m := k.monitorOf("s1")
@@ -343,7 +344,7 @@ func TestTicksModes(t *testing.T) {
 	if got := l.calls(); !strings.HasPrefix(got[len(got)-1], "stop,") {
 		t.Errorf("not stopped: %q", got[len(got)-1])
 	}
-	entries, _ := os.ReadDir(tg.Attach.TmpDir)
+	entries, _ := os.ReadDir(tg.Attach.Tmp.Root)
 	for _, e := range entries {
 		if e.Name() != LibName {
 			t.Errorf("left in /tmp: %s", e.Name())
@@ -519,12 +520,12 @@ func TestTicksErrors(t *testing.T) {
 	if _, err := k.Get(context.Background(), tg); err == nil || k.monitorOf("s1") != nil {
 		t.Fatalf("start failure: %v", err)
 	}
-	k.Profiles.FreeBytes = func(string) (int64, bool) { return 1 << 20, true }
+	k.Profiles.FreeBytes = func(ctmp.Dir) (int64, bool) { return 1 << 20, true }
 	var te *TmpSpaceError
 	if _, err := k.Get(context.Background(), tg); !errors.As(err, &te) {
 		t.Fatalf("tmp space: %v", err)
 	}
-	k.Profiles.FreeBytes = func(string) (int64, bool) { return 1 << 30, true }
+	k.Profiles.FreeBytes = func(ctmp.Dir) (int64, bool) { return 1 << 30, true }
 
 	// A failing window: state error, the next window starts again.
 	l.err = nil
@@ -555,7 +556,7 @@ func TestTicksErrors(t *testing.T) {
 	}
 	// The JVM is gone: the monitor ends.
 	l.err = func(string) error { return attach.ErrTimeout }
-	m.target.Hsperf = filepath.Join(t.TempDir(), "gone")
+	m.target.Hsperf = ctmp.File{Dir: ctmp.Dir{Root: t.TempDir()}, Name: "gone"}
 	c.Add(TickWindow)
 	if m.step() {
 		t.Error("monitor of a gone JVM did not end")

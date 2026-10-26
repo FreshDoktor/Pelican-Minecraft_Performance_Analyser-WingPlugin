@@ -52,17 +52,22 @@ func TestFindJava(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if j.HostPID != 1002 || j.NSPID != 26 || j.User != "container" || filepath.Base(j.Hsperf) != "26" {
+	if j.HostPID != 1002 || j.NSPID != 26 || j.User != "container" || j.Hsperf.Name != "26" || j.Hsperf.Dir.Path != "tmp/hsperfdata_container" {
 		t.Errorf("got %+v", j)
 	}
-	if filepath.Base(j.AttachSocket()) != ".java_pid26" {
-		t.Errorf("socket %s", j.AttachSocket())
+	if j.Tmp.Root != filepath.Join(root, "1002", "root") || j.AttachSocket().Name != ".java_pid26" || j.AttachSocket().Dir != j.Tmp {
+		t.Errorf("tmp %+v, socket %+v", j.Tmp, j.AttachSocket())
+	}
+	if f, err := j.Hsperf.Dir.Open(j.Hsperf.Name); err != nil {
+		t.Errorf("hsperfdata: %v", err)
+	} else {
+		f.Close()
 	}
 
 	// Without hsperfdata anywhere the first java process (BFS) wins.
 	os.RemoveAll(filepath.Join(root, "1002", "root", "tmp", "hsperfdata_container"))
 	j, err = p.FindJava(1000)
-	if err != nil || j.HostPID != 1003 || j.Hsperf != "" || j.User != "" {
+	if err != nil || j.HostPID != 1003 || !j.Hsperf.IsZero() || j.User != "" {
 		t.Errorf("fallback: %+v %v", j, err)
 	}
 
@@ -84,7 +89,7 @@ func TestFindJavaIgnoresSymlinks(t *testing.T) {
 		t.Skip("symlinks not available:", err)
 	}
 	j, err := Proc{Root: root}.FindJava(2000)
-	if err != nil || j.Hsperf != "" {
+	if err != nil || !j.Hsperf.IsZero() {
 		t.Errorf("symlinked hsperfdata dir must be ignored: %+v %v", j, err)
 	}
 }

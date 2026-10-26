@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
@@ -68,7 +69,7 @@ type fakeAttach struct {
 
 // readHsperf is the profile manager's hsperfdata source: the fixture with
 // optional modifications (e.g. a collection during the profile).
-func (f *fakeAttach) readHsperf(_ *Server, p string) (*hsperf.Data, error) {
+func (f *fakeAttach) readHsperf(_ *Server, p ctmp.File) (*hsperf.Data, error) {
 	f.mu.Lock()
 	err, mod := f.hsperfErr, f.hsperfMod
 	f.mu.Unlock()
@@ -181,8 +182,8 @@ func (f *fakeAttach) Load(_ context.Context, t attach.Target, lib, options strin
 	f.clock.Advance(f.stopTook)
 	for _, o := range strings.Split(options, ",") {
 		if file, ok := strings.CutPrefix(o, "file=/tmp/"); ok {
-			os.WriteFile(filepath.Join(t.TmpDir, file), []byte(collapsed), 0o644)
-			os.WriteFile(filepath.Join(t.TmpDir, strings.TrimSuffix(file, ".collapsed")+".log"), nil, 0o644)
+			os.WriteFile(filepath.Join(t.Tmp.Root, file), []byte(collapsed), 0o644)
+			os.WriteFile(filepath.Join(t.Tmp.Root, strings.TrimSuffix(file, ".collapsed")+".log"), nil, 0o644)
 		}
 	}
 	return nil

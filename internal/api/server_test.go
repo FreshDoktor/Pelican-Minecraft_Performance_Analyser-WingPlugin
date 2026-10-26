@@ -17,6 +17,7 @@ import (
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/config"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
@@ -59,7 +60,6 @@ func (f fakeProc) FindJava(pid int) (container.JavaProcess, error) {
 
 func testServer(t *testing.T) *Server {
 	t.Helper()
-	fixture, _ := filepath.Abs("../../testdata/mpa-hsperf.bin")
 	running := exContainer()
 	stopped := exContainer()
 	stopped.UUID, stopped.State, stopped.Running, stopped.PID = uuidStopped, "exited", false, 0
@@ -71,27 +71,25 @@ func testServer(t *testing.T) *Server {
 	noPerf.UUID, noPerf.PID = uuidNoPerf, 4000
 
 	java := exJava()
-	java.Hsperf = fixture
-	java.TmpDir = t.TempDir() // the container's /tmp
+	java.Hsperf = ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}
+	java.Tmp = ctmp.Dir{Root: t.TempDir()} // the container's /tmp
 	javaNoPerf := exJava()
-	javaNoPerf.User, javaNoPerf.Hsperf = "", ""
+	javaNoPerf.User, javaNoPerf.Hsperf = "", ctmp.File{}
 
 	c := &clock{t: time.UnixMilli(exBridgeStart)}
 	s := &Server{
-		Version:    "1.0.0",
-		Creds:      config.StaticCredentials(testTokenID, testToken),
-		Docker:     fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
-		Proc:       fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
-		Attach:     newFakeAttach(t, c),
-		Features:   exFeatures(),
-		TmpfsBytes: exTmpfs,
-		Limits:     NodeLimits{MaxConcurrentProfiles: 2, MaxProfileSeconds: 120, MaxTickMonitors: 10},
-		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Now:        c.Now,
-		HostCPUs:   exHostCPUs,
-		SocketExists: func(p string) bool {
-			return strings.HasSuffix(filepath.ToSlash(p), "/.java_pid26")
-		},
+		Version:      "1.0.0",
+		Creds:        config.StaticCredentials(testTokenID, testToken),
+		Docker:       fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
+		Proc:         fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
+		Attach:       newFakeAttach(t, c),
+		Features:     exFeatures(),
+		TmpfsBytes:   exTmpfs,
+		Limits:       NodeLimits{MaxConcurrentProfiles: 2, MaxProfileSeconds: 120, MaxTickMonitors: 10},
+		Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Now:          c.Now,
+		HostCPUs:     exHostCPUs,
+		SocketExists: func(f ctmp.File) bool { return f.Dir.Root != "" && f.Name == ".java_pid26" },
 	}
 	f := s.Attach.(*fakeAttach)
 	collapsed, err := os.ReadFile("testdata/profile-wall.collapsed")
@@ -108,9 +106,9 @@ func testServer(t *testing.T) *Server {
 		ProcRoot:      t.TempDir(),
 		Check:         s.CheckServer,
 		Now:           c.Now,
-		ReadHsperf:    func(p string) (*hsperf.Data, error) { return f.readHsperf(s, p) },
+		ReadHsperf:    func(p ctmp.File) (*hsperf.Data, error) { return f.readHsperf(s, p) },
 		CPUTicks:      func(int) (int64, error) { v := ticks; ticks += f.cpuStep; return v, nil },
-		FreeBytes:     func(string) (int64, bool) { return f.freeBytes, true },
+		FreeBytes:     func(ctmp.Dir) (int64, bool) { return f.freeBytes, true },
 		After:         f.timers.After,
 		Poll:          f.timers.Poll,
 		NewID:         func() string { return exProfileID },
@@ -272,7 +270,7 @@ func TestMetricsLive(t *testing.T) {
 func withVMArgs(t *testing.T, s *Server, vmArgs string) {
 	t.Helper()
 	orig := s.ReadHsperf
-	s.ReadHsperf = func(p string) (*hsperf.Data, error) {
+	s.ReadHsperf = func(p ctmp.File) (*hsperf.Data, error) {
 		d, err := orig(p)
 		if err == nil {
 			d.SetString("java.rt.vmArgs", vmArgs)
@@ -297,7 +295,7 @@ func TestAttachSafety(t *testing.T) {
 
 	// Listener not running, JVM old enough: start once, then the command.
 	s = testServer(t)
-	s.SocketExists = func(string) bool { return false }
+	s.SocketExists = func(ctmp.File) bool { return false }
 	if w := do(t, s, http.MethodGet, path, testToken); w.Code != 200 {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
@@ -307,7 +305,7 @@ func TestAttachSafety(t *testing.T) {
 
 	// JVM younger than 30 s: no signal.
 	s = testServer(t)
-	s.SocketExists = func(string) bool { return false }
+	s.SocketExists = func(ctmp.File) bool { return false }
 	f, c := fakes(s)
 	c.Set(time.UnixMilli(begin + 29_000))
 	w := do(t, s, http.MethodGet, path, testToken)
@@ -320,7 +318,7 @@ func TestAttachSafety(t *testing.T) {
 	// -Xrs and DisableAttachMechanism never get a signal.
 	for reason, vmArgs := range map[string]string{ReasonXrs: "-Xmx1G -Xrs", ReasonDisabled: "-Xmx1G -XX:+DisableAttachMechanism"} {
 		s = testServer(t)
-		s.SocketExists = func(string) bool { return false }
+		s.SocketExists = func(ctmp.File) bool { return false }
 		withVMArgs(t, s, vmArgs)
 		f, _ := fakes(s)
 		w := do(t, s, http.MethodGet, path, testToken)
@@ -330,7 +328,7 @@ func TestAttachSafety(t *testing.T) {
 			t.Errorf("%s: %d %s, starts %d", reason, w.Code, w.Body, f.starts)
 		}
 		// With a running listener -Xrs is harmless (no signal needed); disabled stays disabled.
-		s.SocketExists = func(string) bool { return true }
+		s.SocketExists = func(ctmp.File) bool { return true }
 		w = do(t, s, http.MethodGet, path, testToken)
 		if want := map[string]int{ReasonXrs: 200, ReasonDisabled: 409}[reason]; w.Code != want {
 			t.Errorf("%s with listener: %d, want %d", reason, w.Code, want)

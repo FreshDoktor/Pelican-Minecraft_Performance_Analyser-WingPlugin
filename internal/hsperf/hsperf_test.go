@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"testing"
+
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 )
 
 // builder writes hsperfdata v2 buffers like HotSpot's PerfMemory.
@@ -255,7 +257,7 @@ func TestClassification(t *testing.T) {
 
 // TestFixture checks the file from the test node against the values in PLAN.md.
 func TestFixture(t *testing.T) {
-	d, err := ReadFile("../../testdata/mpa-hsperf.bin")
+	d, err := ReadFile(ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"})
 	if err != nil {
 		t.Fatal(err)
 	}

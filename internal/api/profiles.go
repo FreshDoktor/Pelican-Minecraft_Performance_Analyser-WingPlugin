@@ -262,6 +262,6 @@ func (s *Server) CleanupAll(ctx context.Context, l ContainerLister) {
 			continue
 		}
 		j := *t.java
-		s.Profiles.Cleanup(ctx, attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, TmpDir: j.TmpDir}, s.SocketExists(j.AttachSocket()))
+		s.Profiles.Cleanup(ctx, attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}, s.SocketExists(j.AttachSocket()))
 	}
 }

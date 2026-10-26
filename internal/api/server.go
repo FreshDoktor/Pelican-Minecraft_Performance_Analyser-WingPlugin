@@ -20,6 +20,7 @@ import (
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/parse"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
@@ -75,8 +76,8 @@ type Server struct {
 	// Overridable in tests.
 	Now          func() time.Time
 	HostCPUs     int
-	ReadHsperf   func(path string) (*hsperf.Data, error)
-	SocketExists func(path string) bool
+	ReadHsperf   func(f ctmp.File) (*hsperf.Data, error)
+	SocketExists func(socket ctmp.File) bool
 
 	started time.Time
 }
@@ -93,7 +94,7 @@ func (s *Server) Init() {
 		s.ReadHsperf = hsperf.ReadFile
 	}
 	if s.SocketExists == nil {
-		s.SocketExists = socketExists
+		s.SocketExists = attach.SocketExists
 	}
 	if s.Features == nil {
 		s.Features = Implemented
@@ -102,11 +103,6 @@ func (s *Server) Init() {
 		s.Log = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
 	s.started = s.Now()
-}
-
-func socketExists(path string) bool {
-	st, err := os.Lstat(path)
-	return err == nil && st.Mode()&os.ModeSocket != 0
 }
 
 var (
@@ -278,10 +274,10 @@ func (s *Server) resolve(ctx context.Context, uuid string) (*target, *apiError) 
 		return t, nil
 	}
 	t.java = &j
-	if j.Hsperf != "" {
+	if !j.Hsperf.IsZero() {
 		t.perf, t.perfErr = s.ReadHsperf(j.Hsperf)
 		if t.perfErr != nil {
-			s.Log.Info("hsperfdata unreadable", "uuid", uuid, "path", j.Hsperf, "err", t.perfErr)
+			s.Log.Info("hsperfdata unreadable", "uuid", uuid, "path", j.Hsperf.String(), "err", t.perfErr)
 			t.perf = nil
 		}
 	}
@@ -446,7 +442,7 @@ func (s *Server) jcmd(ctx context.Context, t *target, command string, timeout ti
 
 // ensureAttach checks the safety rules and starts the listener if needed.
 func (s *Server) ensureAttach(ctx context.Context, t *target, what string) (attach.Target, *apiError) {
-	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, TmpDir: t.java.TmpDir}
+	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, Tmp: t.java.Tmp}
 	if s.Attach == nil {
 		return target, newError(CodeNotImplemented, "", nil)
 	}

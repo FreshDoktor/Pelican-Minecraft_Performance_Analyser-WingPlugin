@@ -38,7 +38,7 @@ func TestRealJVMTicks(t *testing.T) {
 	}
 	started, _ := d.Long("sun.rt.createVmBeginTime")
 	client := attach.New(32 << 20)
-	at := attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, TmpDir: j.TmpDir}
+	at := attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}
 	ctx := context.Background()
 	if err := client.Start(ctx, at); err != nil {
 		t.Fatal(err)
@@ -140,10 +140,10 @@ func TestRealJVMTicks(t *testing.T) {
 	k.endLocked(mon)
 	k.mu.Unlock()
 	time.Sleep(time.Second)
-	entries, _ := os.ReadDir(j.TmpDir)
-	for _, e := range entries {
-		if len(e.Name()) > 4 && e.Name()[:4] == "mpa-" && e.Name() != LibName {
-			t.Errorf("left in /tmp: %s", e.Name())
+	names, _ := j.Tmp.Names()
+	for _, n := range names {
+		if len(n) > 4 && n[:4] == "mpa-" && n != LibName {
+			t.Errorf("left in /tmp: %s", n)
 		}
 	}
 }

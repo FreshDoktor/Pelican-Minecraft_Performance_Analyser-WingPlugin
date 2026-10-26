@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 )
 
@@ -35,7 +36,7 @@ func newManager(t *testing.T) (*Manager, attach.Target) {
 	t.Helper()
 	m := &Manager{MaxConcurrent: 2, Lib: []byte("library v1"), Loader: &recLoader{}, ProcRoot: t.TempDir()}
 	m.init()
-	return m, attach.Target{HostPID: 4242, NSPID: 26, TmpDir: t.TempDir()}
+	return m, attach.Target{HostPID: 4242, NSPID: 26, Tmp: ctmp.Dir{Root: t.TempDir()}}
 }
 
 func mapLib(t *testing.T, m *Manager, pid int) {
@@ -47,7 +48,7 @@ func mapLib(t *testing.T, m *Manager, pid int) {
 
 func TestEnsureLib(t *testing.T) {
 	m, tg := newManager(t)
-	lib := filepath.Join(tg.TmpDir, LibName)
+	lib := filepath.Join(tg.Tmp.Root, LibName)
 	if err := m.ensureLib(tg); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestEnsureLibSymlink(t *testing.T) {
 	m, tg := newManager(t)
 	target := filepath.Join(t.TempDir(), "host-file")
 	os.WriteFile(target, []byte("host"), 0o644)
-	if err := os.Symlink(target, filepath.Join(tg.TmpDir, LibName)); err != nil {
+	if err := os.Symlink(target, filepath.Join(tg.Tmp.Root, LibName)); err != nil {
 		t.Skip("symlinks not available:", err)
 	}
 	if err := m.ensureLib(tg); err != nil {
@@ -86,7 +87,7 @@ func TestEnsureLibSymlink(t *testing.T) {
 	if b, _ := os.ReadFile(target); string(b) != "host" {
 		t.Errorf("symlink target was written: %q", b)
 	}
-	if st, err := os.Lstat(filepath.Join(tg.TmpDir, LibName)); err != nil || !st.Mode().IsRegular() {
+	if st, err := os.Lstat(filepath.Join(tg.Tmp.Root, LibName)); err != nil || !st.Mode().IsRegular() {
 		t.Errorf("lib is not a regular file: %v", err)
 	}
 }
@@ -110,11 +111,11 @@ func TestOptions(t *testing.T) {
 func TestCleanup(t *testing.T) {
 	m, tg := newManager(t)
 	for _, n := range []string{"mpa-a.collapsed", "mpa-b.log", LibName, "keep.txt"} {
-		os.WriteFile(filepath.Join(tg.TmpDir, n), []byte("x"), 0o644)
+		os.WriteFile(filepath.Join(tg.Tmp.Root, n), []byte("x"), 0o644)
 	}
 	mapLib(t, m, tg.HostPID)
 	m.Cleanup(context.Background(), tg, true)
-	es, _ := os.ReadDir(tg.TmpDir)
+	es, _ := os.ReadDir(tg.Tmp.Root)
 	var names []string
 	for _, e := range es {
 		names = append(names, e.Name())
@@ -135,17 +136,16 @@ func TestCleanup(t *testing.T) {
 
 func TestStartRetriesLeftoverProfiler(t *testing.T) {
 	m, tg := newManager(t)
-	fixture, _ := filepath.Abs("../../testdata/mpa-hsperf.bin")
 	l := &recLoader{errs: []error{&attach.CommandError{Code: 200, Message: "return code: 200"}}}
 	m.Loader = l
 	// The agent logs why it failed.
 	m.NewID = func() string {
-		os.WriteFile(filepath.Join(tg.TmpDir, "mpa-00000000000000aa.log"), []byte("[ERROR] Profiler already started\n"), 0o644)
+		os.WriteFile(filepath.Join(tg.Tmp.Root, "mpa-00000000000000aa.log"), []byte("[ERROR] Profiler already started\n"), 0o644)
 		return "00000000000000aa"
 	}
 	m.Poll = func() (<-chan time.Time, func()) { return nil, func() {} }
 	m.After = func(time.Duration) <-chan time.Time { return nil }
-	r, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: fixture}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50})
+	r, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,11 +156,11 @@ func TestStartRetriesLeftoverProfiler(t *testing.T) {
 }
 
 func TestGCTracker(t *testing.T) {
-	d, err := hsperf.ReadFile("../../testdata/mpa-hsperf.bin")
+	d, err := hsperf.ReadFile(ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	before, _ := hsperf.ReadFile("../../testdata/mpa-hsperf.bin")
+	before, _ := hsperf.ReadFile(ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"})
 	start := int64(63_000_000) // ms since JVM start
 	g := newGCTracker(before, start)
 	g.observe(d) // nothing new

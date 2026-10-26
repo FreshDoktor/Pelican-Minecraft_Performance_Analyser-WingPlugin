@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/parse"
 )
@@ -124,8 +126,8 @@ type Loader interface {
 type Target struct {
 	ServerUUID   string
 	Attach       attach.Target
-	Hsperf       string // host path of the hsperfdata file
-	JVMStartedAt int64  // Unix ms (sun.rt.createVmBeginTime)
+	Hsperf       ctmp.File // the hsperfdata file
+	JVMStartedAt int64     // Unix ms (sun.rt.createVmBeginTime)
 }
 
 // Request is a validated POST /profiles body.
@@ -201,9 +203,9 @@ type Manager struct {
 
 	// Overridable in tests.
 	Now        func() time.Time
-	ReadHsperf func(path string) (*hsperf.Data, error)
+	ReadHsperf func(f ctmp.File) (*hsperf.Data, error)
 	CPUTicks   func(pid int) (int64, error) // utime+stime in USER_HZ (100)
-	FreeBytes  func(dir string) (int64, bool)
+	FreeBytes  func(d ctmp.Dir) (int64, bool)
 	After      func(d time.Duration) <-chan time.Time
 	Poll       func() (<-chan time.Time, func())
 	NewID      func() string
@@ -316,12 +318,11 @@ func (m *Manager) Start(ctx context.Context, t Target, req Request) (Run, error)
 
 func (m *Manager) start(ctx context.Context, r *run) error {
 	t := r.target
-	libHost := filepath.Join(t.Attach.TmpDir, LibName)
 	need := int64(tmpReserve)
-	if _, err := os.Lstat(libHost); err != nil {
+	if _, err := t.Attach.Tmp.Mode(LibName); err != nil {
 		need += int64(len(m.Lib))
 	}
-	if free, ok := m.FreeBytes(t.Attach.TmpDir); ok && free < need {
+	if free, ok := m.FreeBytes(t.Attach.Tmp); ok && free < need {
 		return &TmpSpaceError{Free: free, Required: need}
 	}
 	if err := m.ensureLib(t.Attach); err != nil {
@@ -395,20 +396,26 @@ func stopOptions(id, mode string) string {
 // has mapped is never touched (overwriting it crashes the JVM); otherwise a
 // file that is not exactly ours is replaced.
 func (m *Manager) ensureLib(t attach.Target) error {
-	host := filepath.Join(t.TmpDir, LibName)
 	if m.libLoaded(t.HostPID) {
 		return nil
 	}
-	if st, err := os.Lstat(host); err == nil {
-		if st.Mode().IsRegular() && st.Mode().Perm() == 0o644 && ownedByRoot(st) && m.sameLib(host) {
+	// Decide on the opened file, not on the name: the container can swap it.
+	f, err := t.Tmp.Open(LibName)
+	if err == nil {
+		ours := m.sameLib(f)
+		f.Close()
+		if ours {
 			return nil
 		}
-		if err := os.Remove(host); err != nil {
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		if err := t.Tmp.Remove(LibName); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("profile: remove stale library: %w", err)
 		}
 	}
-	// O_EXCL: never follows a symlink planted under that name.
-	f, err := os.OpenFile(host, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	// O_EXCL: never follows a symlink planted under that name; the mode is
+	// set on the descriptor (umask).
+	f, err = t.Tmp.Create(LibName, 0o644)
 	if err != nil {
 		return fmt.Errorf("profile: write library: %w", err)
 	}
@@ -416,22 +423,20 @@ func (m *Manager) ensureLib(t attach.Target) error {
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
-	if err == nil {
-		err = os.Chmod(host, 0o644) // umask
-	}
 	if err != nil {
-		os.Remove(host)
+		t.Tmp.Remove(LibName)
 		return fmt.Errorf("profile: write library: %w", err)
 	}
 	return nil
 }
 
-func (m *Manager) sameLib(path string) bool {
-	f, err := openNoFollow(path)
-	if err != nil {
+// sameLib reports whether f is our library as we write it: a regular file
+// of root, mode 0644, our content; all from f, not from the name.
+func (m *Manager) sameLib(f *os.File) bool {
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm() != 0o644 || !ownedByRoot(st) {
 		return false
 	}
-	defer f.Close()
 	h := sha256.New()
 	if _, err := io.Copy(h, io.LimitReader(f, int64(len(m.Lib))+1)); err != nil {
 		return false
@@ -457,20 +462,17 @@ func (m *Manager) libLoaded(pid int) bool {
 }
 
 func (m *Manager) readLog(t attach.Target, id string) string {
-	b, _ := m.readFile(filepath.Join(t.TmpDir, "mpa-"+id+".log"), 4096)
+	b, _ := readFile(t.Tmp, "mpa-"+id+".log", 4096)
 	return string(b)
 }
 
 // readFile reads at most limit bytes of a regular file without following symlinks.
-func (m *Manager) readFile(path string, limit int64) ([]byte, bool) {
-	f, err := openNoFollow(path)
+func readFile(d ctmp.Dir, name string, limit int64) ([]byte, bool) {
+	f, err := d.Open(name)
 	if err != nil {
 		return nil, false
 	}
 	defer f.Close()
-	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
-		return nil, false
-	}
 	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
 		return nil, false
@@ -481,15 +483,11 @@ func (m *Manager) readFile(path string, limit int64) ([]byte, bool) {
 	return b, false
 }
 
+// removeFiles removes the files of a run; ctmp removes no directory and
+// follows no symlink.
 func (m *Manager) removeFiles(t attach.Target, id string) {
 	for _, ext := range []string{".collapsed", ".log"} {
-		removeRegular(filepath.Join(t.TmpDir, "mpa-"+id+ext))
-	}
-}
-
-func removeRegular(path string) {
-	if st, err := os.Lstat(path); err == nil && !st.IsDir() {
-		os.Remove(path)
+		t.Tmp.Remove("mpa-" + id + ext)
 	}
 }
 
@@ -543,7 +541,7 @@ func (m *Manager) loop(ctx context.Context, r *run, before *hsperf.Data, cpu0 in
 		m.removeFiles(t.Attach, r.ID)
 		return
 	}
-	out, truncated := m.readFile(filepath.Join(t.Attach.TmpDir, "mpa-"+r.ID+".collapsed"), MaxOutput)
+	out, truncated := readFile(t.Attach.Tmp, "mpa-"+r.ID+".collapsed", MaxOutput)
 	m.removeFiles(t.Attach, r.ID)
 	if truncated {
 		if i := strings.LastIndexByte(string(out), '\n'); i >= 0 {
@@ -731,13 +729,16 @@ func (m *Manager) Cleanup(ctx context.Context, t attach.Target, listener bool) {
 		// Stopping an inactive profiler only logs "Profiler is not active".
 		m.Loader.Load(ctx, t, libPath, stopOptions("cleanup", ModeWall))
 	}
-	entries, err := os.ReadDir(t.TmpDir)
+	names, err := t.Tmp.Names()
 	if err != nil {
 		return
 	}
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "mpa-") && e.Name() != LibName && e.Type().IsRegular() {
-			removeRegular(filepath.Join(t.TmpDir, e.Name()))
+	for _, n := range names {
+		if !strings.HasPrefix(n, "mpa-") || n == LibName {
+			continue
+		}
+		if mode, err := t.Tmp.Mode(n); err == nil && mode.IsRegular() {
+			t.Tmp.Remove(n)
 		}
 	}
 }

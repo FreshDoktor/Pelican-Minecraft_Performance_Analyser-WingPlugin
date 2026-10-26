@@ -3,22 +3,15 @@ package profile
 import (
 	"os"
 	"syscall"
-)
 
-// openNoFollow opens a file in the container's /tmp without following a
-// final symlink and without blocking on FIFOs.
-func openNoFollow(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-}
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
+)
 
 // freeBytes returns the space available to unprivileged users below dir.
 // The JVM writes the profile as the container user, so root reserves do not count.
-func freeBytes(dir string) (int64, bool) {
-	var st syscall.Statfs_t
-	if err := syscall.Statfs(dir, &st); err != nil {
-		return 0, false
-	}
-	return int64(st.Bavail) * int64(st.Bsize), true
+func freeBytes(dir ctmp.Dir) (int64, bool) {
+	n, err := dir.Free()
+	return n, err == nil
 }
 
 func ownedByRoot(st os.FileInfo) bool {

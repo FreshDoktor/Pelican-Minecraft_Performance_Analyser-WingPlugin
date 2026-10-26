@@ -13,13 +13,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 )
 
 // Errors of the client.
@@ -42,15 +43,18 @@ func (e *CommandError) Error() string {
 
 // Target is a JVM seen from the host.
 type Target struct {
-	HostPID int    // PID on the host, receives SIGQUIT
-	NSPID   int    // PID inside the container, names the files
-	TmpDir  string // host path of the container's /tmp (/proc/<host-pid>/root/tmp)
+	HostPID int      // PID on the host, receives SIGQUIT
+	NSPID   int      // PID inside the container, names the files
+	Tmp     ctmp.Dir // the container's /tmp (/proc/<host-pid>/root + tmp)
 }
 
-// Socket is the host path of the attach socket.
-func (t Target) Socket() string { return filepath.Join(t.TmpDir, ".java_pid"+strconv.Itoa(t.NSPID)) }
+// Socket is the attach socket.
+func (t Target) Socket() ctmp.File {
+	return ctmp.File{Dir: t.Tmp, Name: ".java_pid" + strconv.Itoa(t.NSPID)}
+}
 
-func (t Target) trigger() string { return filepath.Join(t.TmpDir, ".attach_pid"+strconv.Itoa(t.NSPID)) }
+// trigger is the name of the trigger file in t.Tmp.
+func (t Target) trigger() string { return ".attach_pid" + strconv.Itoa(t.NSPID) }
 
 // Client runs commands. The zero value is not usable; use New.
 type Client struct {
@@ -61,8 +65,8 @@ type Client struct {
 
 	// Overridable in tests.
 	Signal       func(pid int) error // sends SIGQUIT
-	Dial         func(ctx context.Context, path string) (net.Conn, error)
-	SocketExists func(path string) bool
+	Dial         func(ctx context.Context, socket ctmp.File) (net.Conn, error)
+	SocketExists func(socket ctmp.File) bool
 
 	mu    sync.Mutex
 	locks map[int]chan struct{}
@@ -80,10 +84,19 @@ func New(maxOutput int64) *Client {
 	}
 }
 
-// SocketExists reports whether path is a Unix socket (not following symlinks).
-func SocketExists(path string) bool {
-	st, err := os.Lstat(path)
-	return err == nil && st.Mode()&os.ModeSocket != 0
+// SocketExists reports whether socket is a Unix socket (not following
+// symlinks). Only a hint: dialSocket checks the socket it connects to.
+func SocketExists(socket ctmp.File) bool {
+	m, err := socket.Dir.Mode(socket.Name)
+	return err == nil && m&fs.ModeSocket != 0
+}
+
+// dialSocket connects without following symlinks: the container controls the
+// path, and an absolute symlink would resolve against the host root (e.g. the
+// Docker socket). ctmp checks the socket on its descriptor and connects
+// through that.
+func dialSocket(ctx context.Context, socket ctmp.File) (net.Conn, error) {
+	return socket.Dir.Dial(ctx, socket.Name)
 }
 
 // lock serializes commands per JVM (HotSpot handles one at a time anyway).
@@ -116,15 +129,15 @@ func (c *Client) Start(ctx context.Context, t Target) error {
 	}
 	trig := t.trigger()
 	// O_EXCL never follows a symlink planted under that name.
-	f, err := os.OpenFile(trig, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := t.Tmp.Create(trig, 0o600)
 	switch {
 	case err == nil:
 		f.Close()
-		defer os.Remove(trig)
-	case errors.Is(err, os.ErrExist):
+		defer t.Tmp.Remove(trig)
+	case errors.Is(err, fs.ErrExist):
 		// Another attacher is starting it; only an empty regular file is ours to use.
-		if st, lerr := os.Lstat(trig); lerr != nil || !st.Mode().IsRegular() {
-			return fmt.Errorf("%w: unexpected %s", ErrProtocol, trig)
+		if m, lerr := t.Tmp.Mode(trig); lerr != nil || !m.IsRegular() {
+			return fmt.Errorf("%w: unexpected %s", ErrProtocol, ctmp.File{Dir: t.Tmp, Name: trig})
 		}
 	default:
 		return fmt.Errorf("attach: create trigger: %w", err)

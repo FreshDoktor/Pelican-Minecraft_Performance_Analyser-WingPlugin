@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
@@ -169,7 +170,7 @@ func tickExamples(t *testing.T) map[string]any {
 
 	// A JVM started 12 s ago without a running listener: no SIGQUIT yet.
 	s = testServer(t)
-	s.SocketExists = func(string) bool { return false }
+	s.SocketExists = func(ctmp.File) bool { return false }
 	_, c = fakes(s)
 	c.Set(time.UnixMilli(exJVMStart + 12_000))
 	ex["ticks-jvm-starting"] = getAt(t, s, path, 200)
@@ -249,7 +250,7 @@ func TestTicksErrors(t *testing.T) {
 
 	// -Xrs and no listener: never a signal.
 	young := testServer(t)
-	young.SocketExists = func(string) bool { return false }
+	young.SocketExists = func(ctmp.File) bool { return false }
 	withVMArgs(t, young, "-Xmx1G -Xrs")
 	if w := do(t, young, http.MethodGet, path(uuidRunning), testToken); w.Code != 409 || !strings.Contains(w.Body.String(), `"reason":"xrs"`) {
 		t.Errorf("xrs: %d %s", w.Code, w.Body)

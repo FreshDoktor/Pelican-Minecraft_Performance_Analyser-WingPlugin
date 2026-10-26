@@ -12,6 +12,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 )
 
 // Magic is the first four bytes of every hsperfdata file, in big-endian order.
@@ -56,16 +58,17 @@ type Data struct {
 	entries      map[string]Value
 }
 
-// ReadFile reads and parses the file at path.
-func ReadFile(path string) (*Data, error) {
-	f, err := openFile(path)
+// ReadFile reads and parses an hsperfdata file. It lives in a directory the
+// container controls; ctmp opens only a regular file and follows no symlink.
+func ReadFile(file ctmp.File) (*Data, error) {
+	f, err := file.Dir.Open(file.Name)
+	if errors.Is(err, ctmp.ErrNotRegular) {
+		return nil, ErrNotRegular
+	}
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
-		return nil, ErrNotRegular
-	}
 	// The file is a fixed-size mmap (32 KB by default, PerfDataMemorySize);
 	// cap reads so a hostile file cannot exhaust memory.
 	b, err := io.ReadAll(io.LimitReader(f, 4<<20))

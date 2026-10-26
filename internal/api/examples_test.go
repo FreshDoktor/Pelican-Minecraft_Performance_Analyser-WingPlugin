@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/container"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
@@ -49,12 +50,12 @@ func exContainer() container.Info {
 }
 
 func exJava() container.JavaProcess {
-	return container.JavaProcess{HostPID: 2817346, NSPID: 26, User: "container", Hsperf: "x"}
+	return container.JavaProcess{HostPID: 2817346, NSPID: 26, User: "container", Hsperf: ctmp.File{Name: "x"}}
 }
 
 func loadFixture(t *testing.T) *hsperf.Data {
 	t.Helper()
-	d, err := hsperf.ReadFile("../../testdata/mpa-hsperf.bin")
+	d, err := hsperf.ReadFile(ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +120,7 @@ func examples(t *testing.T) map[string]any {
 
 	// A JVM started 12 s ago without a running listener: no SIGQUIT yet.
 	young := testServer(t)
-	young.SocketExists = func(string) bool { return false }
+	young.SocketExists = func(ctmp.File) bool { return false }
 	_, c := fakes(young)
 	c.Set(time.UnixMilli(1792866595712 + 12_000))
 	ex["vm-without-flags"] = get(t, young, base+exUUID+"/vm", 200)
