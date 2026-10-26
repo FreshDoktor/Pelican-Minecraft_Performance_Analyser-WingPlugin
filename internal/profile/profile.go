@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -307,12 +308,23 @@ func (m *Manager) Start(ctx context.Context, t Target, req Request) (Run, error)
 	if m.Yield != nil {
 		r.release = m.Yield(ctx, t.Attach.HostPID)
 	}
-	if err := m.start(ctx, r); err != nil {
+	discard := func() {
 		m.mu.Lock()
 		delete(m.runs, r.ID)
 		m.mu.Unlock()
 		m.removeFiles(t.Attach, r.ID)
 		r.release()
+	}
+	defer func() {
+		// net/http recovers the handler, but a hidden run left behind would
+		// block the server and keep its tick monitor suspended for good.
+		if v := recover(); v != nil {
+			discard()
+			panic(v)
+		}
+	}()
+	if err := m.start(ctx, r); err != nil {
+		discard()
 		return Run{}, err
 	}
 	m.mu.Lock()
@@ -499,6 +511,7 @@ func (m *Manager) removeFiles(t attach.Target, id string) {
 func (m *Manager) loop(ctx context.Context, r *run, before *hsperf.Data, cpu0 int64, cpuOK bool) {
 	defer close(r.done)
 	defer r.release()
+	defer m.recoverRun(r)
 	t := r.target
 	end := m.After(r.EndsAt.Sub(m.Now()))
 	if m.Now().After(r.EndsAt) {
@@ -598,6 +611,36 @@ func (m *Manager) loop(ctx context.Context, r *run, before *hsperf.Data, cpu0 in
 	r.ExpiresAt = r.FinishedAt.Add(Retention)
 	m.mu.Unlock()
 	m.Log.Info("profile done", "id", r.ID, "samples", res.Total, "threads", len(res.Threads))
+}
+
+// recoverRun turns a panic of a run's goroutine (it parses what the tenant's
+// JVM writes) into a failed run instead of ending the bridge for every server.
+// A profiler that still samples is stopped; the files are removed.
+func (m *Manager) recoverRun(r *run) {
+	v := recover()
+	if v == nil {
+		return
+	}
+	m.Log.Error("profile panicked", "id", r.ID, "uuid", r.ServerUUID, "panic", v, "stack", string(debug.Stack()))
+	m.mu.Lock()
+	running := r.State == StateRunning
+	m.mu.Unlock()
+	m.fail(r, &Error{Code: CodeInternal, Message: "Internal error."})
+	if running {
+		try(m.Log, "profile stop", func() { m.stop(r.target, r) })
+	}
+	m.removeFiles(r.target.Attach, r.ID)
+}
+
+// try runs f and logs a panic of it: cleaning up after a panic must not
+// panic the process.
+func try(log *slog.Logger, what string, f func()) {
+	defer func() {
+		if v := recover(); v != nil {
+			log.Error(what+" panicked", "panic", v, "stack", string(debug.Stack()))
+		}
+	}()
+	f()
 }
 
 func closed() <-chan time.Time {

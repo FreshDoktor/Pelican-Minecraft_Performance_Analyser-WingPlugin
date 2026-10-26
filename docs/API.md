@@ -535,7 +535,7 @@ result. `204 No Content` on success, `404 profile_not_found` otherwise.
 | `elapsed_ms` | integer | since `started_at` (until `finished_at`) |
 | `progress` | number | 0–1 (`elapsed_ms / (seconds·1000)`, capped at 1) |
 | `expires_at` | Unix ms, nullable | finished profiles are kept 15 minutes, then 404 (earlier if dropped by a newer one, see [Profiles](#profiles)); `null` while running. The panel stores results itself |
-| `error` | error object, nullable | `failed` only: same shape as [error responses](#errors): `server_not_running` (`details.container_state`, the server stopped), `no_java_process` (the JVM ended, container still running), `attach_failed`, `attach_timeout`, `output_too_large` |
+| `error` | error object, nullable | `failed` only: same shape as [error responses](#errors): `server_not_running` (`details.container_state`, the server stopped), `no_java_process` (the JVM ended, container still running), `attach_failed`, `attach_timeout`, `output_too_large`, `internal_error` (a bug of the bridge, see its log) |
 | `result` | object, nullable | `done` only, see below |
 
 #### Profile result
@@ -620,7 +620,8 @@ failures show up as `state: "error"` and the monitor tries again in the next win
 
 **Monitor.** The first call starts a tick monitor for the server (attach listener as for the other
 attach endpoints, then async-profiler as for profiles). It ends when no call came for
-`idle_timeout_ms` (60 s, the console was closed), when the JVM ends, or with the bridge. A new JVM
+`idle_timeout_ms` (60 s, the console was closed), when the JVM ends, after an internal error of the
+bridge (logged; the next call starts a new one), or with the bridge. A new JVM
 (other PID or start time) starts a new monitor with an empty history. At most `max_tick_monitors`
 monitors run on a node (`mpa-bridge.yml`, default 10); they don't count against `max_concurrent_profiles`.
 Files in the container's `/tmp`: `mpa-ticks-<id>.collapsed` and `.log` for a few milliseconds per

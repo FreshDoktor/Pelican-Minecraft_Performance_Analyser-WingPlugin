@@ -583,3 +583,82 @@ func TestTicksNewJVM(t *testing.T) {
 		t.Error("old monitor not told to quit")
 	}
 }
+
+func TestTicksPanicEnds(t *testing.T) {
+	k, l, c, tg := newTicks(t)
+	l.out = func(string) string { return samples(225, 25) }
+	tick := make(chan time.Time)
+	k.Every = func(time.Duration) (<-chan time.Time, func()) { return tick, func() {} }
+	if _, err := k.Get(context.Background(), tg); err != nil {
+		t.Fatal(err)
+	}
+	// Every stop panics, also the one of the shutdown after the panic.
+	l.mu.Lock()
+	l.out = func(o string) string {
+		if strings.HasPrefix(o, "stop,") {
+			panic("injected: " + o)
+		}
+		return samples(225, 25)
+	}
+	l.mu.Unlock()
+	os.WriteFile(filepath.Join(tg.Attach.Tmp.Root, "mpa-ticks-00000000000000aa.log"), []byte("x"), 0o644)
+	c.Add(TickWindow)
+	tick <- time.Time{}
+	waitTmpClean(t, k, tg)
+	// The slot is free: the next Get starts a new monitor.
+	l.mu.Lock()
+	l.out = func(string) string { return samples(225, 25) }
+	l.mu.Unlock()
+	k.NewID = func() string { return "00000000000000ab" }
+	s, err := k.Get(context.Background(), tg)
+	if err != nil || s.State != TickStateStarting || k.monitorOf("s1") == nil {
+		t.Errorf("after the panic: %+v, %v", s, err)
+	}
+	// Its shutdown runs after the test: no more output files to clean up.
+	l.mu.Lock()
+	l.out = nil
+	l.mu.Unlock()
+	k.mu.Lock()
+	k.endLocked(k.mons["s1"])
+	k.mu.Unlock()
+}
+
+// waitTmpClean waits until no monitor of s1 is left and only the library is
+// in /tmp (the loop removes the files after it ended).
+func waitTmpClean(t *testing.T, k *Ticks, tg Target) {
+	t.Helper()
+	for i := 0; ; i++ {
+		entries, _ := os.ReadDir(tg.Attach.Tmp.Root)
+		if k.monitorOf("s1") == nil && len(entries) == 1 && entries[0].Name() == LibName {
+			return
+		}
+		if i == 500 {
+			t.Fatalf("monitor %v, /tmp %v", k.monitorOf("s1"), entries)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestTicksGetPanicDiscards(t *testing.T) {
+	k, _, _, tg := newTicks(t)
+	k.ThreadID = func(int, string) (int, bool, error) { panic("injected: thread lookup") }
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("the panic must reach net/http")
+			}
+		}()
+		k.Get(context.Background(), tg)
+	}()
+	if k.monitorOf("s1") != nil {
+		t.Error("monitor kept after the panic")
+	}
+	// No monitor holds op: a profile can still yield the JVM.
+	done := make(chan struct{})
+	go func() { k.Yield(context.Background(), 4242)(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Yield blocked")
+	}
+}

@@ -222,6 +222,24 @@ func TestCleanupAll(t *testing.T) {
 	}
 }
 
+func TestCleanupAllPanic(t *testing.T) {
+	s := testServer(t)
+	java := s.Proc.(fakeProc)[exContainer().PID]
+	os.WriteFile(filepath.Join(java.Tmp.Root, "mpa-0123456789abcdef.log"), []byte("x"), 0o644)
+	exists, calls := s.SocketExists, 0
+	s.SocketExists = func(f ctmp.File) bool {
+		if calls++; calls == 1 {
+			panic("injected")
+		}
+		return exists(f)
+	}
+	// The first server panics, the next one is still cleaned up.
+	s.CleanupAll(t.Context(), listFunc(func() []string { return []string{uuidRunning, uuidRunning} }))
+	if got := tmpFiles(t, s); len(got) != 0 || calls != 2 {
+		t.Errorf("after cleanup %v, %d calls", got, calls)
+	}
+}
+
 type listFunc func() []string
 
 func (l listFunc) List(context.Context) ([]string, error) { return l(), nil }

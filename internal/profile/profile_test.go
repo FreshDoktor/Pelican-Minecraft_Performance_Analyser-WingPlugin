@@ -264,3 +264,120 @@ func TestGCTracker(t *testing.T) {
 		t.Errorf("pauses %+v complete %v", ps, complete)
 	}
 }
+
+// panicLoader panics on the commands that start with prefix, else records them.
+type panicLoader struct {
+	recLoader
+	prefix string
+}
+
+func (l *panicLoader) Load(ctx context.Context, t attach.Target, lib, options string) error {
+	l.recLoader.Load(ctx, t, lib, options)
+	if strings.HasPrefix(options, l.prefix) {
+		panic("injected: " + options)
+	}
+	return nil
+}
+
+func TestRunPanicFails(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		hsperf bool   // ReadHsperf panics while running
+		loader string // the loader panics on these commands
+		stops  int    // stop commands sent
+	}{
+		{"hsperf while running", true, "", 1},
+		{"stop while processing", false, "stop,", 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			m, tg := newManager(t)
+			l := &panicLoader{prefix: c.loader}
+			if c.loader == "" {
+				l.prefix = "never"
+			}
+			m.Loader = l
+			const id = "00000000000000bb"
+			m.NewID = func() string { return id }
+			reads := 0
+			m.ReadHsperf = func(f ctmp.File) (*hsperf.Data, error) {
+				if reads++; reads > 1 && c.hsperf {
+					panic("injected: hsperf")
+				}
+				return hsperf.ReadFile(f)
+			}
+			tick := make(chan time.Time)
+			end := make(chan time.Time)
+			m.Poll = func() (<-chan time.Time, func()) { return tick, func() {} }
+			m.After = func(time.Duration) <-chan time.Time { return end }
+			released := make(chan struct{})
+			m.Yield = func(context.Context, int) func() { return func() { close(released) } }
+			hs := ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}
+			r, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: hs}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, n := range []string{"mpa-" + id + ".log", "mpa-" + id + ".collapsed"} {
+				os.WriteFile(filepath.Join(tg.Tmp.Root, n), []byte("x"), 0o644)
+			}
+			if c.hsperf {
+				tick <- time.Time{}
+			} else {
+				end <- time.Time{}
+			}
+			select {
+			case <-released:
+			case <-time.After(5 * time.Second):
+				t.Fatal("release not called")
+			}
+			m.mu.Lock()
+			done := m.runs[id].done
+			m.mu.Unlock()
+			<-done
+			got, _ := m.Get("u", r.ID)
+			if got.State != StateFailed || got.Err == nil || got.Err.Code != CodeInternal || got.ExpiresAt.IsZero() {
+				t.Errorf("run %+v, err %+v", got, got.Err)
+			}
+			stops := 0
+			for _, o := range l.opts {
+				if strings.HasPrefix(o, "stop,") {
+					stops++
+				}
+			}
+			if stops != c.stops {
+				t.Errorf("%d stops: %q", stops, l.opts)
+			}
+			es, _ := os.ReadDir(tg.Tmp.Root)
+			for _, e := range es {
+				if e.Name() != LibName {
+					t.Errorf("left in /tmp: %s", e.Name())
+				}
+			}
+			// The server can be profiled again.
+			m.NewID = func() string { return "00000000000000bc" }
+			c.hsperf, l.prefix, m.Yield = false, "never", nil
+			if _, err := m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: hs}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50}); err != nil {
+				t.Errorf("start after the panic: %v", err)
+			}
+			m.Delete("u", "00000000000000bc")
+		})
+	}
+}
+
+func TestStartPanicDiscards(t *testing.T) {
+	m, tg := newManager(t)
+	m.Loader = &panicLoader{prefix: "start,"}
+	released := false
+	m.Yield = func(context.Context, int) func() { return func() { released = true } }
+	hs := ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("the panic must reach net/http")
+			}
+		}()
+		m.Start(context.Background(), Target{ServerUUID: "u", Attach: tg, Hsperf: hs}, Request{Mode: ModeWall, Seconds: 1, IntervalMs: 50})
+	}()
+	if got := runIDs(m); got != "" || !released {
+		t.Errorf("runs %q, released %v", got, released)
+	}
+}

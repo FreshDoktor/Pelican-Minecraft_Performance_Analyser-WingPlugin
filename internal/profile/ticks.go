@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -208,16 +209,32 @@ func (k *Ticks) Get(ctx context.Context, t Target) (TickSnapshot, error) {
 	k.mons[t.ServerUUID] = m
 	k.mu.Unlock()
 
-	m.op.Lock()
-	err := m.begin(ctx)
-	m.op.Unlock()
-	if err != nil {
+	discard := func() {
 		k.mu.Lock()
 		if k.mons[t.ServerUUID] == m {
 			k.endLocked(m)
 		}
 		k.mu.Unlock()
 		m.removeFiles(t)
+	}
+	err := func() error {
+		m.op.Lock()
+		defer m.op.Unlock()
+		defer func() {
+			// net/http recovers the handler, but a monitor left behind would
+			// hold its slot and, with op locked, block every Yield of the JVM.
+			if v := recover(); v != nil {
+				if m.active {
+					try(k.Log, "tick monitor stop", func() { m.stopSession(context.Background(), t) })
+				}
+				discard()
+				panic(v)
+			}
+		}()
+		return m.begin(ctx)
+	}()
+	if err != nil {
+		discard()
 		return TickSnapshot{}, err
 	}
 	k.Log.Info("tick monitor started", "uuid", t.ServerUUID, "id", id)
@@ -314,6 +331,7 @@ func (m *monitor) record(w TickWindowResult) {
 }
 
 func (m *monitor) loop() {
+	defer m.recoverLoop()
 	tick, stop := m.k.Every(TickWindow)
 	defer stop()
 	for {
@@ -345,6 +363,24 @@ func (m *monitor) shutdown() {
 	}
 	m.removeFiles(t)
 	k.Log.Info("tick monitor stopped", "uuid", m.uuid, "id", m.id)
+}
+
+// recoverLoop ends the monitor after a panic of its goroutine (it parses what
+// the tenant's JVM writes) instead of the bridge: the slot is freed, so the
+// next Get starts a new monitor, the session is stopped and the files removed.
+func (m *monitor) recoverLoop() {
+	v := recover()
+	if v == nil {
+		return
+	}
+	k := m.k
+	k.Log.Error("tick monitor panicked", "uuid", m.uuid, "id", m.id, "panic", v, "stack", string(debug.Stack()))
+	k.mu.Lock()
+	k.endLocked(m)
+	t := m.target
+	k.mu.Unlock()
+	try(k.Log, "tick monitor shutdown", m.shutdown)
+	m.removeFiles(t)
 }
 
 // step measures one window. false ends the monitor.

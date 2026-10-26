@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -257,11 +258,23 @@ func (s *Server) CleanupAll(ctx context.Context, l ContainerLister) {
 		return
 	}
 	for _, uuid := range uuids {
-		t, e := s.resolve(ctx, uuid)
-		if e != nil || t.java == nil {
-			continue
-		}
-		j := *t.java
-		s.Profiles.Cleanup(ctx, attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}, s.SocketExists(j.AttachSocket()))
+		s.cleanup(ctx, uuid)
 	}
+}
+
+// cleanup runs in its own goroutine at the start: a panic (it reads what the
+// tenant's container holds) is logged and skips the server, it must not end
+// the bridge.
+func (s *Server) cleanup(ctx context.Context, uuid string) {
+	defer func() {
+		if v := recover(); v != nil {
+			s.Log.Error("cleanup panicked", "uuid", uuid, "panic", v, "stack", string(debug.Stack()))
+		}
+	}()
+	t, e := s.resolve(ctx, uuid)
+	if e != nil || t.java == nil {
+		return
+	}
+	j := *t.java
+	s.Profiles.Cleanup(ctx, attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}, s.SocketExists(j.AttachSocket()))
 }
