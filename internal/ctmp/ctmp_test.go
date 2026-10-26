@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // newRoot builds a container root with an empty /tmp.
@@ -135,7 +136,12 @@ func TestDial(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := io.ReadAll(c)
+	// Read the expected bytes, not up to EOF: Windows' AF_UNIX does not always
+	// pass the close on, and ReadAll then waits forever.
+	c.SetDeadline(time.Now().Add(5 * time.Second))
+	b := make([]byte, 2)
+	n, _ := io.ReadFull(c, b)
+	b = b[:n]
 	c.Close()
 	if string(b) != "0\n" {
 		t.Errorf("read %q", b)
