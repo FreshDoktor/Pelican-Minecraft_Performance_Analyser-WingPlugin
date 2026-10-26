@@ -46,7 +46,7 @@ If the contract changes, this file and the examples change first, then both side
 | Header | Direction | Value |
 | --- | --- | --- |
 | `Authorization` | request | `Bearer <token>`: the **node token of Wings** (`token` in `/etc/pelican/config.yml`, i.e. `daemon_token` of the node in the panel). Compared in constant time. |
-| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.3.1 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
+| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v1.0.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
 | `Content-Type` | request | `application/json` for request bodies (`POST /profiles`). Bodies are limited to 4 KiB. |
 
 The bridge resolves the token like Wings: `WINGS_TOKEN` / `WINGS_TOKEN_ID` take precedence over the
@@ -69,15 +69,19 @@ The panel calls the bridge server-side only. The bridge sends no CORS headers.
 - `features` lists what this bridge build implements. Endpoints of later milestones exist in every
   build but answer `501 not_implemented` until their feature is listed:
 
-  | Feature | Endpoint / field | Milestone |
-  | --- | --- | --- |
-  | `status`, `vm`, `metrics` | `/status`, `/vm`, `/metrics` | 1 |
-  | `threads` | `GET /threads` | 2 |
-  | `histogram` | `GET /histogram` | 2 |
-  | `vm_flags` | `flags` in `/vm` | 2 |
-  | `live_heap` | `live_heap` in `/metrics?live=1` | 2 |
-  | `profiles` | `/profiles…` | 3 |
-  | `ticks` | `GET /ticks`, `limits.max_tick_monitors` | 3 |
+  | Feature | Endpoint / field | Milestone | Bridge version |
+  | --- | --- | --- | --- |
+  | `status`, `vm`, `metrics` | `/status`, `/vm`, `/metrics` | 1 | 0.1.0 |
+  | `threads` | `GET /threads` | 2 | 0.1.0 |
+  | `histogram` | `GET /histogram` | 2 | 0.1.0 |
+  | `vm_flags` | `flags` in `/vm` | 2 | 0.1.0 |
+  | `live_heap` | `live_heap` in `/metrics?live=1` | 2 | 0.1.0 |
+  | `profiles` | `/profiles…` | 3 | 0.1.0 |
+  | `ticks` | `GET /ticks`, `limits.max_tick_monitors` | 3 | 0.2.0 (counting all the time since 0.3.0, state `idle` since 0.3.1) |
+
+  Bridge 1.0.0 is the first release and has every feature; the milestone builds only existed during
+  development. The panel still handles them, which keeps it working with older or newer bridges that
+  lack a feature.
 
 ## Endpoints
 
@@ -105,7 +109,7 @@ profiles but without the tick monitor report).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `bridge_version` | string | semver, e.g. `0.3.1` |
+| `bridge_version` | string | semver, e.g. `1.0.0` |
 | `api_version` | integer | `1` |
 | `features` | string[] | see [Versioning](#versioning) |
 | `started_at` | Unix ms | start of the bridge process |
@@ -401,8 +405,8 @@ Examples: [`profile-created.json`](examples/profile-created.json) (response of `
 [`profile-failed.json`](examples/profile-failed.json), [`profiles.json`](examples/profiles.json) (list),
 [`profiles-empty.json`](examples/profiles-empty.json) (list without profiles).
 They are recorded from the real handlers and the profile manager with a fake attach socket. The
-stacks in `profile-done.json` are **constructed** from the thread dump fixture (no profile of the
-Minecraft server has been recorded yet), the format is final.
+stacks in `profile-done.json` are **constructed** from the thread dump fixture, the format is final.
+Real results from servers with mods (cut down to the `Server thread`) are in `testdata/profile-*.json`.
 
 How a profile runs (nothing of the request except the checked numbers and the mode enum reaches the JVM):
 

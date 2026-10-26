@@ -1,0 +1,21 @@
+[Unit]
+Description=MPA Bridge (Minecraft Performance Analyser)
+Documentation=https://github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+PartOf=docker.service
+StartLimitIntervalSec=180
+StartLimitBurst=30
+
+[Service]
+# Root: the bridge reads /proc/<pid>/root of the server containers, signals
+# their JVMs and talks to the Docker socket, like Wings.
+User=root
+WorkingDirectory=/etc/pelican
+ExecStart=/usr/local/bin/mpa-bridge
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
