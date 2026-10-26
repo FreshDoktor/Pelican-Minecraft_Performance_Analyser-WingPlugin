@@ -26,6 +26,20 @@ func TestClassifyTickStack(t *testing.T) {
 		{run + ";net/minecraft/util/thread/BlockableEventLoop.waitForTasks", "", ""},
 		// Obfuscated vanilla before 26.1.
 		{run + ";net/minecraft/server/MinecraftServer.w;net/minecraft/server/MinecraftServer.a", "", ""},
+		// Paused in runServer without a tick or idle method, e.g. by Tick Stasis (Fabric, real stack).
+		{"java/lang/Thread.run;net/minecraft/server/MinecraftServer$$Lambda.0x00007727f95ad8d8.run;net/minecraft/server/MinecraftServer.method_29739;" +
+			"net/minecraft/server/MinecraftServer.method_29741;net/minecraft/server/MinecraftServer.redirect$dpk000$tick-stasis$waitUntilResumed;" +
+			"java/util/concurrent/locks/LockSupport.park;jdk/internal/misc/Unsafe.park;Unsafe_Park;Parker::park;pthread_cond_wait", TickIdle, MappingIntermediary},
+		{run + ";net/minecraft/server/MinecraftServer.runServer;com/example/Pause.hold;java/lang/Thread.sleep", TickIdle, MappingMojmap},
+		{run + ";net/minecraft/server/MinecraftServer.m_130011_;java/lang/Object.wait", TickIdle, MappingSRG},
+		{run + ";net/minecraft/server/MinecraftServer.func_240802_v_;java/util/concurrent/locks/LockSupport.parkNanos", TickIdle, MappingMCP},
+		// In runServer without blocking: undecided. Blocking inside the tick stays tick work, and so does
+		// blocking in Minecraft's own code, e.g. loading the worlds at start (Fabric, real stack, shortened).
+		{run + ";net/minecraft/server/MinecraftServer.runServer;com/example/Mod.work", "", ""},
+		{run + ";net/minecraft/server/MinecraftServer.method_29741;net/minecraft/class_3176.method_3823;net/minecraft/server/MinecraftServer.method_3735;" +
+			"net/minecraft/class_3215.getChunkBlocking;net/minecraft/class_1255.method_20813;java/util/concurrent/locks/LockSupport.parkNanos", "", ""},
+		{run + ";net/minecraft/server/MinecraftServer.runServer;net/minecraft/server/MinecraftServer.loadLevel;java/lang/Object.wait", "", ""},
+		{run + ";net/minecraft/server/MinecraftServer.runServer;net/minecraft/server/MinecraftServer.tickServer;java/util/concurrent/locks/LockSupport.park", TickWork, MappingMojmap},
 		{"[unknown_Java]", "", ""},
 		{"Parker::park(bool, long);__pthread_cond_timedwait", "", ""},
 	}
