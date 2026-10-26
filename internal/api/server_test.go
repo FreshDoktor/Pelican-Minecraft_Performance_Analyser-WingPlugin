@@ -78,7 +78,7 @@ func testServer(t *testing.T) *Server {
 
 	c := &clock{t: time.UnixMilli(exBridgeStart)}
 	s := &Server{
-		Version:    "0.2.0",
+		Version:    "0.2.1",
 		Creds:      config.StaticCredentials(testTokenID, testToken),
 		Docker:     fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
 		Proc:       fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
@@ -403,7 +403,7 @@ func TestPaused(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	s := testServer(t)
-	ua := "MPA Bridge/v0.2.0 (id:" + testTokenID + ")"
+	ua := "MPA Bridge/v0.2.1 (id:" + testTokenID + ")"
 	path := "/api/v1/servers/" + uuidRunning + "/status"
 	for name, c := range map[string]struct {
 		header string

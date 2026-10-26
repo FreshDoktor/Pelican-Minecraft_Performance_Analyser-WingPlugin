@@ -162,4 +162,11 @@ func TestThreadID(t *testing.T) {
 	if _, _, err := p.ThreadID(99, "Server thread"); err == nil {
 		t.Error("no process: no error")
 	}
+	// In a container the JVM knows the id of its PID namespace (NSpid).
+	task(4100, 4100, "java")
+	task(4100, 4134, "Server thread")
+	write(t, filepath.Join(root, "4100", "task", "4134", "status"), "Name:\tServer thread\nPid:\t4134\nNSpid:\t4134\t60\n")
+	if tid, _, err := p.ThreadID(4100, "Server thread"); tid != 60 || err != nil {
+		t.Errorf("namespace: %d %v", tid, err)
+	}
 }

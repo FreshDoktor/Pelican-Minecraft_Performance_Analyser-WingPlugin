@@ -1,5 +1,5 @@
 {
-  "bridge_version": "0.2.0",
+  "bridge_version": "0.2.1",
   "api_version": 1,
   "features": [
     "status",

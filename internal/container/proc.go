@@ -89,7 +89,8 @@ var ErrNoThread = errors.New("container: no such thread")
 
 // ThreadID returns the native id of the thread of pid named name (the lowest,
 // if several are), from /proc/<pid>/task/<tid>/comm; Linux cuts the names to
-// 15 bytes. named is false when the JVM gives its threads no native names
+// 15 bytes. The id is the one inside the container's PID namespace (last value
+// of NSpid), as the JVM and async-profiler know it. named is false when the JVM gives its threads no native names
 // (Java 8: every thread is "java"), then name can't be found this way.
 func (p Proc) ThreadID(pid int, name string) (tid int, named bool, err error) {
 	dir := filepath.Join(p.Root, strconv.Itoa(pid), "task")
@@ -120,7 +121,25 @@ func (p Proc) ThreadID(pid int, name string) (tid int, named bool, err error) {
 	if tid == 0 {
 		return 0, named, ErrNoThread
 	}
-	return tid, true, nil
+	return p.nsID(filepath.Join(dir, strconv.Itoa(tid), "status"), tid), true, nil
+}
+
+// nsID returns the last value of NSpid in a status file, def if there is none.
+func (p Proc) nsID(status string, def int) int {
+	b, err := os.ReadFile(status)
+	if err != nil {
+		return def
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if rest, ok := strings.CutPrefix(l, "NSpid:"); ok {
+			if fs := strings.Fields(rest); len(fs) > 0 {
+				if n, err := strconv.Atoi(fs[len(fs)-1]); err == nil {
+					return n
+				}
+			}
+		}
+	}
+	return def
 }
 
 // statFields splits /proc/<pid>/stat; the comm field may contain spaces and parens.

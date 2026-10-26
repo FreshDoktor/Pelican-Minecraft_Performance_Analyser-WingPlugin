@@ -144,6 +144,7 @@ type monitor struct {
 	classOK   bool // the tick frames are of ServerClass, which counting instruments
 	prepared  bool // free space checked, library in place
 	nextDump  time.Time
+	noSamples bool // logged that a window had no samples of the Server thread
 }
 
 func (k *Ticks) init() {
@@ -564,6 +565,10 @@ func (m *monitor) collectSampling(ctx context.Context, t Target) error {
 	w, mapping, classOK := evalSamples(m.output(t), m.tid)
 	if w.Samples == 0 {
 		// The Server thread was not sampled (ended or renamed): find it again next window.
+		if !m.noSamples {
+			m.noSamples = true
+			k.Log.Warn("tick monitor: no samples of the Server thread", "uuid", m.uuid, "tid", m.tid)
+		}
 		m.tid = 0
 		return nil
 	}

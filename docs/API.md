@@ -46,7 +46,7 @@ If the contract changes, this file and the examples change first, then both side
 | Header | Direction | Value |
 | --- | --- | --- |
 | `Authorization` | request | `Bearer <token>`: the **node token of Wings** (`token` in `/etc/pelican/config.yml`, i.e. `daemon_token` of the node in the panel). Compared in constant time. |
-| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.2.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
+| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.2.1 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
 | `Content-Type` | request | `application/json` for request bodies (`POST /profiles`). Bodies are limited to 4 KiB. |
 
 The bridge resolves the token like Wings: `WINGS_TOKEN` / `WINGS_TOKEN_ID` take precedence over the
@@ -105,7 +105,7 @@ profiles but without the tick monitor report).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `bridge_version` | string | semver, e.g. `0.2.0` |
+| `bridge_version` | string | semver, e.g. `0.2.1` |
 | `api_version` | integer | `1` |
 | `features` | string[] | see [Versioning](#versioning) |
 | `started_at` | Unix ms | start of the bridge process |
