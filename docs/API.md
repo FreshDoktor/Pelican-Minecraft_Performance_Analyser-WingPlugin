@@ -13,6 +13,7 @@ If the contract changes, this file and the examples change first, then both side
 - [Transport (TLS)](#transport-tls)
 - [Authentication and headers](#authentication-and-headers)
 - [Versioning](#versioning)
+- [Verifying a release](#verifying-a-release)
 - [Endpoints](#endpoints): [node status](#get-apiv1status), [server status](#get-status), [vm](#get-vm), [metrics](#get-metrics), [threads](#get-threads), [histogram](#get-histogram), [profiles](#profiles), [ticks](#get-ticks)
 - [Errors](#errors)
 - [Examples](#examples)
@@ -144,6 +145,27 @@ The panel calls the bridge server-side only. The bridge sends no CORS headers.
   Bridge 1.0.0 is the first release and has every feature; the milestone builds only existed during
   development. The panel still handles them, which keeps it working with older or newer bridges that
   lack a feature.
+
+## Verifying a release
+
+The release workflow attests the build provenance of `mpa-bridge-linux-amd64`, `install.sh` and
+`mpa-bridge.service` (`actions/attest-build-provenance`, signed with the workflow's identity): the file
+was built by `.github/workflows/release.yml` of this repo from the tagged commit. With the GitHub CLI,
+in the folder of the downloaded release files:
+
+```
+gh attestation verify mpa-bridge-linux-amd64 --repo FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin
+gh attestation verify install.sh --repo FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin
+```
+
+Exit status 0 means verified. The `.sha256` file next to the binary, which `install.sh` checks, only
+guards against a broken download, as it comes from the same place. The panel's
+`minecraft-performance-analyser.zip` is attested the same way
+(`--repo FreshDoktor/Pelican-Minecraft_Performance_Analyser-PanelPlugin`).
+
+The bundled async-profiler library (`assets/libasyncProfiler.so`) is the unmodified one of the official
+async-profiler release; `assets/NOTICE` names the release asset, the path in it and both SHA-256 sums,
+and a test checks the embedded library against them.
 
 ## Endpoints
 

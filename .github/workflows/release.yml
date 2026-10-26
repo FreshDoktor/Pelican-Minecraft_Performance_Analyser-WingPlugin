@@ -1,21 +1,26 @@
 # Builds the bridge for a tag v<version> and publishes the GitHub release with
-# the binary, its SHA-256, install.sh and the systemd unit (packaging/build.sh).
+# the binary, its SHA-256, install.sh and the systemd unit (packaging/build.sh),
+# with a build provenance attestation for them (docs/API.md, "Verifying a release").
 name: Release
 
 on:
   push:
     tags: ["v*"]
 
+# Actions are pinned to commits (the tag as comment): a moved tag can't change
+# what builds the release. id-token and attestations sign the build provenance.
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
 
@@ -32,6 +37,13 @@ jobs:
       - run: go test ./...
 
       - run: bash packaging/build.sh
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/mpa-bridge-linux-amd64
+            dist/install.sh
+            dist/mpa-bridge.service
 
       - name: Publish the release
         env:

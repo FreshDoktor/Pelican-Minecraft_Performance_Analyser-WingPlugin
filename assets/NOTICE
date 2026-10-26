@@ -8,6 +8,10 @@ Version 2.0 (see LICENSE-async-profiler in this directory).
 
 The library is taken unmodified from the official release asset
 async-profiler-4.1-linux-x64.tar.gz
-(SHA-256 3b13a38a0063f6970d985a379ddaed91bcf37e239a1ea461d09eacf629f3dde1);
-lib/libasyncProfiler.so has the SHA-256
-8d16556469adc3fe6661f0c023bfc2081342c930796b1d68ae1cd8248bef4c28.
+(https://github.com/async-profiler/async-profiler/releases/download/v4.1/async-profiler-4.1-linux-x64.tar.gz,
+SHA-256 3b13a38a0063f6970d985a379ddaed91bcf37e239a1ea461d09eacf629f3dde1,
+the digest GitHub lists for the asset);
+async-profiler-4.1-linux-x64/lib/libasyncProfiler.so in it has the SHA-256
+8d16556469adc3fe6661f0c023bfc2081342c930796b1d68ae1cd8248bef4c28,
+the same as libasyncProfiler.so here (checked by assets_test.go).
+LICENSE-async-profiler is async-profiler-4.1-linux-x64/LICENSE of the archive.
