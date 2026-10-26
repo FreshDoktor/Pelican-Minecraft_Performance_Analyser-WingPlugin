@@ -151,6 +151,10 @@ func newFakeAttach(t *testing.T, c *clock) *fakeAttach {
 			"VM.flags":                exVMFlags,
 			"GC.heap_info":            exHeapInfo,
 			"VM.metaspace":            exVMMetaspace,
+			// MinecraftServer of a URLClassLoader (the bundler), so the tick monitor counts.
+			"VM.class_hierarchy net.minecraft.server.MinecraftServer": "java.lang.Object/null\n" +
+				"|--net.minecraft.server.MinecraftServer/0x000076b05018b7c0\n",
+			"VM.classloaders verbose": fixtureText(t, "classloaders-url.txt"),
 		},
 		errs: map[string]error{},
 		took: map[string]time.Duration{

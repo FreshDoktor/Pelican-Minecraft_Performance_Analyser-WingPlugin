@@ -23,7 +23,8 @@ import (
 //     The share of samples outside the idle methods is the tick load; with
 //     20 TPS the average tick takes load × 50 ms.
 //   - counting (from then on, for good): async-profiler instruments tickServer
-//     and counts its calls, the TPS are exact. The tick time comes from the
+//     and counts its calls, the TPS are exact. Only if the class loader of
+//     MinecraftServer finds async-profiler's class (see canCount). The tick time comes from the
 //     kernel: the time the Server thread ran or waited for a CPU
 //     (/proc/.../schedstat), plus its share of the JVM's safepoints (GC
 //     pauses), divided by the ticks. Without idle time left (TPS below 19.5)
@@ -151,6 +152,7 @@ type monitor struct {
 	lastCount int64      // counting: calls of tickServer at since
 	busy0     busySample // counting: times of the Server thread at since
 	classOK   bool       // the tick frames are of ServerClass, which counting instruments
+	loaderOK  *bool      // ServerClass's class loader finds instrumentClass; nil until the JVM answered
 	prepared  bool       // free space checked, library in place
 	nextDump  time.Time
 	noSamples bool // logged that a window had no samples of the Server thread
@@ -477,11 +479,9 @@ func (m *monitor) begin(ctx context.Context) error {
 		m.prepared = true
 	}
 	mode := TickMethodSampling
-	k.mu.Lock()
-	if m.classOK && parse.TickServerMethod(m.mapping) != "" {
+	if m.canCount(ctx, t) {
 		mode = TickMethodCounting // known from an earlier session
 	}
-	k.mu.Unlock()
 	if err := m.startSession(ctx, t, mode); err != nil {
 		return err
 	}
@@ -634,10 +634,51 @@ func (m *monitor) collectSampling(ctx context.Context, t Target) error {
 	}
 	m.record(w)
 	next := TickMethodSampling
-	if m.classOK && parse.TickServerMethod(mapping) != "" {
+	if m.canCount(ctx, t) {
 		next = TickMethodCounting
 	}
 	return m.startSession(ctx, t, next)
+}
+
+// instrumentClass is the class async-profiler calls from an instrumented
+// method. It defines the class in the bootstrap class loader.
+const instrumentClass = "one.profiler.Instrument"
+
+// canCount tells whether counting may instrument tickServer (op held): the
+// tick frames are of ServerClass, the mapping is known and the class loader
+// of ServerClass finds instrumentClass. A loader that doesn't ask the
+// bootstrap loader (Cleanroom's Foundation loads everything but java.*
+// itself) throws NoClassDefFoundError in the instrumented tickServer and the
+// server crashes. Only known loaders count; without the commands (Java 8)
+// the monitor keeps sampling. Asked once per JVM.
+func (m *monitor) canCount(ctx context.Context, t Target) bool {
+	k := m.k
+	k.mu.Lock()
+	known := m.classOK && parse.TickServerMethod(m.mapping) != ""
+	k.mu.Unlock()
+	if !known || k.Jcmd == nil {
+		return false
+	}
+	if m.loaderOK == nil {
+		class := strings.ReplaceAll(parse.ServerClass, "/", ".")
+		hierarchy, err := k.Jcmd(ctx, t.Attach, "VM.class_hierarchy "+class)
+		loaders := ""
+		if err == nil {
+			loaders, err = k.Jcmd(ctx, t.Attach, "VM.classloaders verbose")
+		}
+		var ce *attach.CommandError
+		if err != nil && !errors.As(err, &ce) {
+			k.Log.Info("tick monitor: class loader check failed, retrying", "uuid", m.uuid, "err", err)
+			return false
+		}
+		ok := err == nil && parse.FindsBootstrapClasses(hierarchy, loaders, class)
+		m.loaderOK = &ok
+		if !ok {
+			k.Log.Info("tick monitor: sampling only, the class loader of "+class+" may not find "+instrumentClass,
+				"uuid", m.uuid, "err", err)
+		}
+	}
+	return *m.loaderOK
 }
 
 // evalSamples evaluates the collapsed wall samples of the Server thread.

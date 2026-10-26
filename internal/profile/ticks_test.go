@@ -177,11 +177,36 @@ func newTicks(t *testing.T) (*Ticks, *tickLoader, *testClock, Target) {
 		FreeBytes: func(ctmp.Dir) (int64, bool) { return 1 << 30, true }}
 	k := &Ticks{Max: 2, Profiles: m, Now: c.Now, NewID: func() string { return "00000000000000aa" },
 		ThreadID: func(int, string) (int, bool, error) { return 60, true, nil },
-		Every:    func(time.Duration) (<-chan time.Time, func()) { return nil, func() {} }}
+		Every:    func(time.Duration) (<-chan time.Time, func()) { return nil, func() {} },
+		Jcmd:     loaderJcmd(t, "url", nil)}
 	m.Yield = k.Yield
 	tg := Target{ServerUUID: "s1", Attach: attach.Target{HostPID: 4242, NSPID: 26, Tmp: ctmp.Dir{Root: t.TempDir()}},
 		Hsperf: ctmp.File{Dir: ctmp.Dir{Root: "../../testdata"}, Name: "mpa-hsperf.bin"}, JVMStartedAt: 1792866595712}
 	return k, l, c, tg
+}
+
+// loaderJcmd answers the class loader check like a JDK 25 whose
+// MinecraftServer was loaded by the loader of testdata/classloaders-<loader>.txt;
+// asked counts the commands.
+func loaderJcmd(t *testing.T, loader string, asked *int) func(context.Context, attach.Target, string) (string, error) {
+	t.Helper()
+	b, err := os.ReadFile("../../testdata/classloaders-" + loader + ".txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cld := map[string]string{"url": "0x000076b05018b7c0", "isolated": "0x00007e5d18192d50"}[loader]
+	return func(_ context.Context, _ attach.Target, cmd string) (string, error) {
+		if asked != nil {
+			*asked++
+		}
+		switch cmd {
+		case "VM.class_hierarchy net.minecraft.server.MinecraftServer":
+			return "java.lang.Object/null\n|--net.minecraft.server.MinecraftServer/" + cld + "\n", nil
+		case "VM.classloaders verbose":
+			return string(b), nil
+		}
+		return "", &attach.CommandError{Code: 1, Message: "java.lang.IllegalArgumentException: Unknown diagnostic command"}
+	}
 }
 
 func (k *Ticks) monitorOf(uuid string) *monitor {
@@ -352,6 +377,71 @@ func TestTicksModes(t *testing.T) {
 	}
 	if len(k.monitorOf("s1").windowsCopy()) != 0 {
 		t.Error("history kept")
+	}
+}
+
+// A loader that doesn't ask the bootstrap loader for one.profiler.Instrument
+// (Cleanroom's Foundation) crashes the server in an instrumented tickServer:
+// the monitor keeps sampling. So does a JVM without the commands (Java 8).
+// The JVM is asked once; an attach error is retried.
+func TestTicksLoaderNotCounting(t *testing.T) {
+	for _, loader := range []string{"isolated", "java8"} {
+		k, l, c, tg := newTicks(t)
+		l.out = func(string) string { return samples(200, 50) }
+		asked := 0
+		if loader == "isolated" {
+			k.Jcmd = loaderJcmd(t, loader, &asked)
+		} else {
+			k.Jcmd = func(context.Context, attach.Target, string) (string, error) {
+				asked++
+				return "", &attach.CommandError{Code: 1, Message: "java.lang.IllegalArgumentException: Unknown diagnostic command"}
+			}
+		}
+		if _, err := k.Get(context.Background(), tg); err != nil {
+			t.Fatal(err)
+		}
+		m := k.monitorOf("s1")
+		for i := 0; i < 3; i++ {
+			c.Add(TickWindow)
+			m.step()
+		}
+		if w := lastWindow(t, k, tg); w.Method != TickMethodSampling || w.TickMs == nil || *w.TickMs != 10 {
+			t.Errorf("%s: window %+v", loader, w)
+		}
+		for _, o := range l.calls() {
+			if strings.Contains(o, "tickServer") {
+				t.Errorf("%s: instrumented: %q", loader, o)
+			}
+		}
+		if want := map[string]int{"isolated": 2, "java8": 1}[loader]; asked != want {
+			t.Errorf("%s: asked %d times, want %d", loader, asked, want)
+		}
+	}
+
+	k, l, c, tg := newTicks(t)
+	l.out = func(string) string { return samples(200, 50) }
+	failing := true
+	answer := loaderJcmd(t, "url", nil)
+	k.Jcmd = func(ctx context.Context, at attach.Target, cmd string) (string, error) {
+		if failing {
+			return "", attach.ErrTimeout
+		}
+		return answer(ctx, at, cmd)
+	}
+	if _, err := k.Get(context.Background(), tg); err != nil {
+		t.Fatal(err)
+	}
+	m := k.monitorOf("s1")
+	c.Add(TickWindow)
+	m.step()
+	if s, _ := k.Get(context.Background(), tg); s.Method != TickMethodSampling {
+		t.Errorf("attach error: method %s", s.Method)
+	}
+	failing = false
+	c.Add(TickWindow)
+	m.step()
+	if s, _ := k.Get(context.Background(), tg); s.Method != TickMethodCounting {
+		t.Errorf("after the attach error: method %s", s.Method)
 	}
 }
 

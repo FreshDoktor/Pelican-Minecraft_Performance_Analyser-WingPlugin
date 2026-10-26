@@ -1,0 +1,24 @@
++-- <bootstrap>
+      |     
+      |            Loader Oop: 0x0000000000000000
+      |           Loader Data: 0x00007e5d18141910
+      |          Loader Klass: 0x0000000000000000
+      |     
+      +-- "platform", jdk.internal.loader.ClassLoaders$PlatformClassLoader
+      |     |     
+      |     |            Loader Oop: 0x00000007ffe21238
+      |     |           Loader Data: 0x00007e5d18151500
+      |     |          Loader Klass: 0x00000000331c9e90
+      |     |     
+      |     +-- "app", jdk.internal.loader.ClassLoaders$AppClassLoader
+      |                 
+      |                        Loader Oop: 0x00000007ffe21768
+      |                       Loader Data: 0x00007e5d1817cf90
+      |                      Loader Klass: 0x00000000331c9970
+      |                 
+      +-- l.Main$Isolated
+                  
+                         Loader Oop: 0x000000071be19fb0
+                        Loader Data: 0x00007e5d18192d50
+                       Loader Klass: 0x0000000034040210
+                  
