@@ -224,6 +224,11 @@ on the first such request: it creates `/tmp/.attach_pid<container_pid>`, sends `
 waits up to 5 s for the socket and removes the trigger file. With `available: false` no signal is
 ever sent and the endpoint answers `attach_unavailable` (`details.reason` as above).
 
+The bridge reaches every file in the container (hsperfdata, the attach files, the profiler's `mpa-*`
+files) from the host through `/proc/<pid>/root` and follows no symlink in any part of the path: a
+`/tmp`, `hsperfdata_<user>` directory or file that is a symlink counts as missing (e.g. a `/tmp`
+symlinked elsewhere gives `hsperf_unavailable`).
+
 | Command | Used by | Timeout (incl. listener start) |
 | --- | --- | --- |
 | `Thread.print -l` | `/threads` | 15 s |
