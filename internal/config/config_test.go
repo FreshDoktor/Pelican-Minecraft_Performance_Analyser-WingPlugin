@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,46 +63,82 @@ func TestExpand(t *testing.T) {
 	}
 }
 
+const testToken = "0123456789abcdef0123456789abcdef"
+
 func TestLoadWings(t *testing.T) {
-	t.Setenv("WINGS_TOKEN", "")
 	t.Setenv("WINGS_TOKEN_ID", "")
 	w, err := LoadWings(wings(t, "abc123"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.TokenID != "Xy12Ab34Cd56Ef78" || w.Token != "abc123" || w.API.SSL.Enabled ||
+	if w.TokenID != "Xy12Ab34Cd56Ef78" || w.API.SSL.Enabled ||
 		w.API.SSL.Cert != "/etc/letsencrypt/live/wing.example.com/fullchain.pem" || *w.Docker.TmpfsSize != 150 {
 		t.Errorf("unexpected %+v", w)
 	}
 
-	t.Setenv("WINGS_TOKEN", "from-env")
 	t.Setenv("WINGS_TOKEN_ID", "id-env")
 	w, err = LoadWings(wings(t, "abc123"))
-	if err != nil || w.Token != "from-env" || w.TokenID != "id-env" {
+	if err != nil || w.TokenID != "id-env" {
 		t.Errorf("env must win: %+v %v", w, err)
 	}
 
-	t.Setenv("WINGS_TOKEN", "")
-	if _, err := LoadWings(wings(t, `""`)); err == nil {
-		t.Error("empty token must fail")
+	// The Wings token is not needed (and not read) any more.
+	t.Setenv("WINGS_TOKEN_ID", "")
+	if _, err := LoadWings(wings(t, `""`)); err != nil {
+		t.Errorf("empty Wings token: %v", err)
 	}
+}
+
+func TestLoadToken(t *testing.T) {
+	t.Setenv("MPA_BRIDGE_TOKEN", "")
+	wp := wings(t, testToken)
 	dir := t.TempDir()
-	writeFile(t, dir, "tok", "filetoken\n")
+	load := func(token string) (*Config, error) {
+		t.Helper()
+		return Load(writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\ntoken: "+token+"\n"))
+	}
+
+	c, err := load(testToken)
+	if err != nil || c.Token != testToken {
+		t.Fatalf("token: %+v %v", c, err)
+	}
+	// The Wings token is never used, even when it is the same value.
+	if _, err := Load(writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\n")); err == nil {
+		t.Error("no token must fail")
+	}
+	for _, bad := range []string{`""`, "too-short", "file://" + dir + "/missing"} {
+		if _, err := load(bad); err == nil {
+			t.Errorf("token %q must fail", bad)
+		}
+	}
+
+	writeFile(t, dir, "tok", testToken+"\n")
 	t.Setenv("CREDENTIALS_DIRECTORY", dir)
-	w, err = LoadWings(wings(t, "file://${CREDENTIALS_DIRECTORY}/tok"))
-	if err != nil || w.Token != "filetoken" {
-		t.Errorf("file token: %+v %v", w, err)
+	c, err = load("file://${CREDENTIALS_DIRECTORY}/tok")
+	if err != nil || c.Token != testToken {
+		t.Errorf("file token: %+v %v", c, err)
+	}
+
+	env := strings.Repeat("e", MinTokenLength)
+	t.Setenv("MPA_BRIDGE_TOKEN", env)
+	c, err = load(testToken)
+	if err != nil || c.Token != env {
+		t.Errorf("env must win: %+v %v", c, err)
+	}
+	c, err = Load(filepath.Join(dir, "missing.yml"))
+	if err == nil || !strings.Contains(err.Error(), "config.yml") {
+		t.Errorf("missing bridge file with MPA_BRIDGE_TOKEN: defaults, then the Wings config at /etc/pelican: %v", err)
 	}
 }
 
 func TestLoadDefaultsAndBridgeFile(t *testing.T) {
-	t.Setenv("WINGS_TOKEN", "")
+	t.Setenv("MPA_BRIDGE_TOKEN", "")
 	t.Setenv("DOCKER_HOST", "")
 	wp := wings(t, "abc")
 	dir := t.TempDir()
+	base := "wings_config: " + wp + "\ntoken: " + testToken + "\n"
 
-	// Missing bridge file: defaults (wings path must then be the default, so point to it).
-	bp := writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\n")
+	bp := writeFile(t, dir, "mpa-bridge.yml", base)
 	c, err := Load(bp)
 	if err != nil {
 		t.Fatal(err)
@@ -110,11 +147,11 @@ func TestLoadDefaultsAndBridgeFile(t *testing.T) {
 		c.DockerSocket != "/var/run/docker.sock" || c.ProcRoot != "/proc" || len(c.Allowed) != 0 {
 		t.Errorf("defaults: %+v", c.Bridge)
 	}
-	if c.TmpfsSizeBytes != 150<<20 || c.Token != "abc" {
-		t.Errorf("wings: %d %q", c.TmpfsSizeBytes, c.Token)
+	if c.TmpfsSizeBytes != 150<<20 || c.TokenID != "Xy12Ab34Cd56Ef78" {
+		t.Errorf("wings: %d %q", c.TmpfsSizeBytes, c.TokenID)
 	}
 
-	bp = writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\nport: 9000\nallowed_ips: [10.0.0.5, 192.168.0.0/24, '::ffff:10.0.0.6']\nmax_profile_seconds: 60\n")
+	bp = writeFile(t, dir, "mpa-bridge.yml", base+"port: 9000\nallowed_ips: [10.0.0.5, 192.168.0.0/24, '::ffff:10.0.0.6']\nmax_profile_seconds: 60\n")
 	c, err = Load(bp)
 	if err != nil {
 		t.Fatal(err)
@@ -127,34 +164,52 @@ func TestLoadDefaultsAndBridgeFile(t *testing.T) {
 	}
 
 	for _, bad := range []string{"port: 70000", "allowed_ips: [nope]", "max_profile_seconds: -1", "max_concurrent_profiles: -2"} {
-		bp = writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\n"+bad+"\n")
+		bp = writeFile(t, dir, "mpa-bridge.yml", base+bad+"\n")
 		if _, err := Load(bp); err == nil {
 			t.Errorf("%q must fail", bad)
 		}
 	}
 	if _, err := Load(filepath.Join(dir, "missing.yml")); err == nil {
-		t.Error("missing bridge file falls back to /etc/pelican/config.yml, which does not exist here")
+		t.Error("missing bridge file has no token")
 	}
 }
 
 func TestCredentialsReload(t *testing.T) {
-	t.Setenv("WINGS_TOKEN", "")
-	p := wings(t, "first")
-	c := &Config{Bridge: Bridge{WingsConfig: p}}
-	w, _ := LoadWings(p)
-	c.Wings = *w
-	cr := NewCredentials(c)
-	cr.interval = time.Nanosecond
-	if _, tok := cr.Get(); tok != "first" {
-		t.Fatal(tok)
-	}
-	if err := os.WriteFile(p, []byte(fmt.Sprintf(wingsYAML, "second")), 0o600); err != nil {
+	t.Setenv("MPA_BRIDGE_TOKEN", "")
+	t.Setenv("WINGS_TOKEN_ID", "")
+	wp := wings(t, "abc")
+	dir := t.TempDir()
+	bp := writeFile(t, dir, "mpa-bridge.yml", "wings_config: "+wp+"\ntoken: "+testToken+"\n")
+	c, err := Load(bp)
+	if err != nil {
 		t.Fatal(err)
 	}
-	future := time.Now().Add(time.Minute)
-	os.Chtimes(p, future, future)
-	time.Sleep(time.Millisecond)
-	if _, tok := cr.Get(); tok != "second" {
+	cr := NewCredentials(bp, c)
+	cr.interval = time.Nanosecond
+	if id, tok := cr.Get(); tok != testToken || id != "Xy12Ab34Cd56Ef78" {
+		t.Fatal(id, tok)
+	}
+	touch := func(p, content string) {
+		t.Helper()
+		writeFile(t, filepath.Dir(p), filepath.Base(p), content)
+		future := time.Now().Add(time.Minute)
+		os.Chtimes(p, future, future)
+		time.Sleep(time.Millisecond)
+	}
+
+	second := strings.Repeat("2", MinTokenLength)
+	touch(bp, "wings_config: "+wp+"\ntoken: "+second+"\n")
+	if _, tok := cr.Get(); tok != second {
 		t.Errorf("token not reloaded: %q", tok)
+	}
+	// An invalid edit keeps the previous token.
+	touch(bp, "wings_config: "+wp+"\ntoken: short\n")
+	if _, tok := cr.Get(); tok != second {
+		t.Errorf("invalid token taken: %q", tok)
+	}
+	touch(wp, strings.Replace(fmt.Sprintf(wingsYAML, "abc"), "Xy12Ab34Cd56Ef78", "NewId", 1))
+	touch(bp, "wings_config: "+wp+"\ntoken: "+second+"\n")
+	if id, _ := cr.Get(); id != "NewId" {
+		t.Errorf("token id not reloaded: %q", id)
 	}
 }

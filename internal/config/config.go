@@ -1,5 +1,5 @@
-// Package config reads the Wings configuration (token, TLS, tmpfs size) and
-// the bridge's own optional mpa-bridge.yml.
+// Package config reads the bridge's mpa-bridge.yml (with its own token) and
+// the Wings configuration (token id, TLS, tmpfs size).
 package config
 
 import (
@@ -21,8 +21,13 @@ const (
 	DefaultWingsPath  = "/etc/pelican/config.yml"
 )
 
-// Bridge is mpa-bridge.yml. Every field is optional.
+// MinTokenLength is the minimum length of the bridge token.
+const MinTokenLength = 32
+
+// Bridge is mpa-bridge.yml. Every field but token is optional.
 type Bridge struct {
+	// Token is the bearer token the panel sends, independent of the Wings token.
+	Token                 string   `yaml:"token"`
 	Host                  string   `yaml:"host"`
 	Port                  int      `yaml:"port"`
 	MaxConcurrentProfiles int      `yaml:"max_concurrent_profiles"`
@@ -34,10 +39,10 @@ type Bridge struct {
 	ProcRoot              string   `yaml:"proc_root"`
 }
 
-// Wings holds the fields of /etc/pelican/config.yml the bridge uses.
+// Wings holds the fields of /etc/pelican/config.yml the bridge uses. The Wings
+// token is deliberately not read: the bridge has its own.
 type Wings struct {
 	TokenID string `yaml:"token_id"`
-	Token   string `yaml:"token"`
 	API     struct {
 		SSL struct {
 			Enabled bool   `yaml:"enabled"`
@@ -60,8 +65,10 @@ type Config struct {
 	Allowed []netip.Prefix
 }
 
-// Load reads mpa-bridge.yml from bridgePath (a missing file means defaults)
-// and the Wings config it points to.
+// Load reads mpa-bridge.yml from bridgePath (a missing file means defaults,
+// then the token must come from MPA_BRIDGE_TOKEN) and the Wings config it
+// points to. The token is resolved like Wings resolves its own: MPA_BRIDGE_TOKEN
+// takes precedence over the file, then Expand.
 func Load(bridgePath string) (*Config, error) {
 	c := &Config{}
 	b, err := os.ReadFile(bridgePath)
@@ -73,6 +80,10 @@ func Load(bridgePath string) (*Config, error) {
 	case !errors.Is(err, os.ErrNotExist):
 		return nil, err
 	}
+	if v := os.Getenv("MPA_BRIDGE_TOKEN"); v != "" {
+		c.Token = v
+	}
+	c.Token = Expand(c.Token)
 	c.applyDefaults()
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", bridgePath, err)
@@ -125,6 +136,12 @@ func (c *Config) applyDefaults() {
 }
 
 func (c *Config) validate() error {
+	if c.Token == "" {
+		return errors.New("no token (token, MPA_BRIDGE_TOKEN): run install.sh again, it adds one, or set token to a random value of at least 32 characters")
+	}
+	if len(c.Token) < MinTokenLength {
+		return fmt.Errorf("token is shorter than %d characters: run install.sh again with token removed, or set a longer random value", MinTokenLength)
+	}
 	if c.Port < 1 || c.Port > 65535 {
 		return fmt.Errorf("port %d out of range", c.Port)
 	}
@@ -163,8 +180,8 @@ func ParsePrefix(s string) (netip.Prefix, error) {
 	return netip.PrefixFrom(a, a.BitLen()), nil
 }
 
-// LoadWings reads the Wings config and resolves the token like Wings does:
-// WINGS_TOKEN_ID / WINGS_TOKEN take precedence over the file, then Expand.
+// LoadWings reads the Wings config and resolves the token id like Wings does:
+// WINGS_TOKEN_ID takes precedence over the file, then Expand.
 func LoadWings(path string) (*Wings, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -177,22 +194,15 @@ func LoadWings(path string) (*Wings, error) {
 	if v := os.Getenv("WINGS_TOKEN_ID"); v != "" {
 		w.TokenID = v
 	}
-	if v := os.Getenv("WINGS_TOKEN"); v != "" {
-		w.Token = v
-	}
 	w.TokenID = Expand(w.TokenID)
-	w.Token = Expand(w.Token)
-	if w.Token == "" {
-		return nil, fmt.Errorf("%s: no token (token, WINGS_TOKEN)", path)
-	}
 	return &w, nil
 }
 
 // Expand mirrors config.Expand of Wings: environment variables first, then a
 // "file://<path>" value is replaced by the file's content (trailing CR/LF
 // removed). That allows file://${CREDENTIALS_DIRECTORY}/token with systemd's
-// LoadCredential. Like Wings, an unreadable file yields ""; LoadWings then
-// refuses an empty token.
+// LoadCredential. Like Wings, an unreadable file yields ""; Load then refuses
+// the empty token.
 func Expand(v string) string {
 	v = os.ExpandEnv(v)
 	if p, ok := strings.CutPrefix(v, "file://"); ok {
@@ -206,25 +216,28 @@ func Expand(v string) string {
 	return v
 }
 
-// Credentials returns the current token; it re-reads the Wings config when the
-// file changed (the panel can rotate the token while Wings runs).
+// Credentials returns the current bridge token and Wings token id; it reloads
+// both when mpa-bridge.yml or the Wings config changed (a new token in
+// mpa-bridge.yml, or Wings re-configured by the panel). An invalid edit keeps
+// the previous values.
 type Credentials struct {
-	path     string
-	interval time.Duration
+	bridgePath string
+	wingsPath  string
+	interval   time.Duration
 
-	mu      sync.Mutex
-	id      string
-	token   string
-	modTime time.Time
-	checked time.Time
+	mu         sync.Mutex
+	id         string
+	token      string
+	bridgeTime time.Time
+	wingsTime  time.Time
+	checked    time.Time
 }
 
-// NewCredentials starts with the token of c.
-func NewCredentials(c *Config) *Credentials {
-	cr := &Credentials{path: c.WingsConfig, interval: 10 * time.Second, id: c.TokenID, token: c.Token, checked: time.Now()}
-	if st, err := os.Stat(c.WingsConfig); err == nil {
-		cr.modTime = st.ModTime()
-	}
+// NewCredentials starts with the token and token id of c, read from bridgePath.
+func NewCredentials(bridgePath string, c *Config) *Credentials {
+	cr := &Credentials{bridgePath: bridgePath, wingsPath: c.WingsConfig, interval: 10 * time.Second,
+		id: c.TokenID, token: c.Token, checked: time.Now()}
+	cr.bridgeTime, cr.wingsTime = modTime(bridgePath), modTime(c.WingsConfig)
 	return cr
 }
 
@@ -233,15 +246,24 @@ func StaticCredentials(id, token string) *Credentials {
 	return &Credentials{id: id, token: token, interval: -1}
 }
 
+func modTime(path string) time.Time {
+	if st, err := os.Stat(path); err == nil {
+		return st.ModTime()
+	}
+	return time.Time{}
+}
+
 // Get returns token id and token.
 func (c *Credentials) Get() (id, token string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.interval > 0 && time.Since(c.checked) >= c.interval {
 		c.checked = time.Now()
-		if st, err := os.Stat(c.path); err == nil && !st.ModTime().Equal(c.modTime) {
-			if w, err := LoadWings(c.path); err == nil {
-				c.id, c.token, c.modTime = w.TokenID, w.Token, st.ModTime()
+		bt, wt := modTime(c.bridgePath), modTime(c.wingsPath)
+		if !bt.Equal(c.bridgeTime) || !wt.Equal(c.wingsTime) {
+			if cfg, err := Load(c.bridgePath); err == nil {
+				c.id, c.token, c.wingsPath = cfg.TokenID, cfg.Token, cfg.WingsConfig
+				c.bridgeTime, c.wingsTime = bt, wt
 			}
 		}
 	}

@@ -7,7 +7,8 @@
 # Run as root. Without --binary the script takes mpa-bridge-linux-amd64 from its
 # own folder (an unpacked release), else downloads it from the GitHub release and
 # checks its SHA-256. An existing /etc/pelican/mpa-bridge.yml is kept, so running
-# the script again updates the bridge.
+# the script again updates the bridge. A config without a token gets one; the
+# script prints the token for the panel at the end.
 set -euo pipefail
 
 REPO="FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin"
@@ -26,7 +27,7 @@ uninstall=0
 purge=0
 
 usage() {
-	sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
 }
 
@@ -47,6 +48,22 @@ ask() {
 	fi
 	read -r -p "$1" answer </dev/tty
 	echo "${answer:-$2}"
+}
+
+# new_token: 32 random bytes as 64 hex characters, the bridge token the panel sends.
+new_token() {
+	if command -v openssl >/dev/null; then
+		openssl rand -hex 32
+	else
+		head -c 32 /dev/urandom | od -An -v -tx1 | tr -d ' \n'
+		echo
+	fi
+}
+
+# config_token: the token value in the config, without quotes and comment ("" if none).
+config_token() {
+	sed -n 's/^token:[[:space:]]*//p' "$CONFIG_PATH" | head -n1 |
+		sed 's/[[:space:]]\{1,\}#.*$//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/'"; s/^'\(.*\)'\$/\1/"
 }
 
 while [ $# -gt 0 ]; do
@@ -135,10 +152,20 @@ info "Installing $new_version to $BIN_PATH"
 install -m 0755 "$binary" "$BIN_PATH.new"
 mv -f "$BIN_PATH.new" "$BIN_PATH"
 
-# 2. Config
+# 2. Config (holds the bridge token, so only root may read it)
 if [ -f "$CONFIG_PATH" ]; then
 	info "Keeping $CONFIG_PATH"
 	[ -z "$allowed_ips$port" ] || echo "warning: --allowed-ips and --port only apply to a new config, edit $CONFIG_PATH instead" >&2
+	chmod 0600 "$CONFIG_PATH"
+	if [ -z "$(config_token)" ]; then
+		# Bridges before 1.1.0 used the Wings token; drop an empty token line, then add a new one.
+		info "Adding a token to $CONFIG_PATH"
+		sed -i '/^token:/d' "$CONFIG_PATH"
+		{
+			echo "# Token the panel sends (Admin -> Nodes -> node -> MPA Bridge), not the Wings token."
+			echo "token: \"$(new_token)\""
+		} >>"$CONFIG_PATH"
+	fi
 else
 	if [ -z "$allowed_ips" ]; then
 		[ "$assume_yes" -eq 0 ] || die "--yes needs --allowed-ips for a new config"
@@ -156,9 +183,12 @@ else
 		[[ "$port" =~ ^[0-9]+$ && "$port" -ge 1 && "$port" -le 65535 ]] || die "port must be a number from 1 to 65535"
 	fi
 	info "Writing $CONFIG_PATH"
+	(umask 077 && : >"$CONFIG_PATH")
 	{
 		echo "# MPA Bridge, see https://github.com/$REPO"
 		echo "# Restart after changes: systemctl restart mpa-bridge"
+		echo "# Token the panel sends (Admin -> Nodes -> node -> MPA Bridge), not the Wings token."
+		echo "token: \"$(new_token)\""
 		echo "port: $port"
 		echo "host: 0.0.0.0"
 		echo "# Addresses allowed to connect (IPs or CIDRs), i.e. the panel. Empty = everyone."
@@ -172,7 +202,7 @@ else
 		echo "max_profile_seconds: 120"
 		echo "max_tick_monitors: 10"
 	} >"$CONFIG_PATH"
-	chmod 0644 "$CONFIG_PATH"
+	chmod 0600 "$CONFIG_PATH"
 fi
 
 # 3. Service
@@ -233,14 +263,22 @@ scheme="http"
 if sed -n '/^api:/,/^[^[:space:]]/p' "$WINGS_CONFIG" | sed -n '/ssl:/,/enabled:/p' | grep -q 'enabled:[[:space:]]*true'; then
 	scheme="https"
 fi
+token="$(config_token)"
+case "$token" in
+'' | *'$'* | file://*) token="(as set by token in $CONFIG_PATH)" ;;
+esac
 cat <<EOF
 
 $new_version is running on port $listen_port ($scheme, like Wings).
 
+Bridge token (keep it secret, it is not the Wings token):
+
+    $token
+
 Next steps:
   - Let the panel reach this port, and only the panel (firewall).
-  - In the panel: Admin -> Nodes -> this node -> tab "MPA Bridge". Leave the address empty for
-    $scheme://<node FQDN>:$listen_port, or enter the address the panel reaches this node under,
-    e.g. http://10.0.0.5:$listen_port, then "Test connection".
+  - In the panel: Admin -> Nodes -> this node -> tab "MPA Bridge". Enter the address the panel
+    reaches this node under, e.g. $scheme://<node FQDN>:$listen_port or $scheme://10.0.0.5:$listen_port,
+    paste the bridge token above, then "Test connection" and save.
   - Log: journalctl -u mpa-bridge -f
 EOF

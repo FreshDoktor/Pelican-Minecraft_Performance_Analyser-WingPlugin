@@ -26,10 +26,10 @@ import (
 )
 
 // Version is set at build time with -ldflags "-X main.Version=…".
-var Version = "1.0.0"
+var Version = "1.1.0"
 
 func main() {
-	cfgPath := flag.String("config", config.DefaultBridgePath, "path of mpa-bridge.yml (optional file)")
+	cfgPath := flag.String("config", config.DefaultBridgePath, "path of mpa-bridge.yml")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 	if *showVersion {
@@ -56,7 +56,7 @@ func run(cfgPath string, log *slog.Logger) error {
 	attacher := attach.New(api.MaxAttachOutput)
 	srv := &api.Server{
 		Version:    Version,
-		Creds:      config.NewCredentials(cfg),
+		Creds:      config.NewCredentials(cfgPath, cfg),
 		Allowed:    cfg.Allowed,
 		Docker:     docker,
 		Proc:       proc,

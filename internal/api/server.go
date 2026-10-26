@@ -45,7 +45,8 @@ var (
 	TimeoutQuick     = 5 * time.Second // VM.flags, GC.heap_info
 )
 
-// Credentials yields the current Wings token.
+// Credentials yields the token id of Wings (for the User-Agent) and the
+// current bridge token.
 type Credentials interface {
 	Get() (id, token string)
 }

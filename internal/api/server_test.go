@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	testToken   = "wings-node-token"
+	testToken   = "4f1c0d5e8a9b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5" // the bridge token, not the Wings token
 	testTokenID = "Xy12Ab34Cd56Ef78"
 	uuidRunning = exUUID
 	uuidStopped = "00000000-0000-4000-8000-000000000001"
@@ -447,6 +447,16 @@ func TestAuth(t *testing.T) {
 	// Unknown routes need the token too.
 	if w := do(t, s, http.MethodGet, "/nope", ""); w.Code != 401 {
 		t.Errorf("unauthenticated 404 leaks: %d", w.Code)
+	}
+	// Without a token nothing is accepted, not even an empty bearer.
+	s.Creds = config.StaticCredentials(testTokenID, "")
+	r := httptest.NewRequest(http.MethodGet, path, nil)
+	r.RemoteAddr = "10.0.0.2:1"
+	r.Header.Set("Authorization", "Bearer ")
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != 401 {
+		t.Errorf("empty token: %d", w.Code)
 	}
 }
 
