@@ -17,19 +17,24 @@ import (
 )
 
 // Tick monitor (docs/API.md, "GET /ticks"): per server a small async-profiler
-// session on the Server thread only, read every TickWindow.
+// session, read every TickWindow.
 //
-//   - sampling (default): wall-clock samples of the Server thread. The share
-//     of samples outside the idle methods is the tick load; with 20 TPS the
-//     average tick takes load × 50 ms.
-//   - counting: when the tick loop has no idle time left, the samples can't
-//     tell the TPS any more. Then async-profiler instruments tickServer and
-//     counts its calls (exact TPS; without idle time a tick takes 1000/TPS ms).
-//     Back to sampling once the server keeps up again. Switching instruments
-//     MinecraftServer (class retransformation), so it happens rarely.
+//   - sampling (first window): wall-clock samples of the Server thread tell
+//     the mapping of the tick loop and whether its frames are MinecraftServer's.
+//     The share of samples outside the idle methods is the tick load; with
+//     20 TPS the average tick takes load × 50 ms.
+//   - counting (from then on, for good): async-profiler instruments tickServer
+//     and counts its calls, the TPS are exact. The tick time comes from the
+//     kernel: the time the Server thread ran or waited for a CPU
+//     (/proc/.../schedstat), plus its share of the JVM's safepoints (GC
+//     pauses), divided by the ticks. Without idle time left (TPS below 19.5)
+//     a tick takes the window divided by the ticks, also time the thread was
+//     blocked. Instrumenting retransforms MinecraftServer, once per session.
 //
 // async-profiler 4.1 has no method durations (no --trace) and supports
-// several events only with JFR output, hence the two modes.
+// several events only with JFR output, hence counting plus the kernel's
+// times. Sampling stays the mode where counting can't work (tick frames of
+// another class).
 const (
 	TickWindow      = 5 * time.Second
 	TickHistory     = 120 // windows, 10 minutes
@@ -60,9 +65,8 @@ const (
 	tickTmpReserve = 4 << 20
 	tickMaxOutput  = 8 << 20
 	tickOpTimeout  = 15 * time.Second
-	overloadLoad   = 0.95  // sampling: no idle time left, count instead
-	keepUpTPS      = 19.5  // counting: keeps up again, sample instead
-	countCooldown  = 6     // sampling windows before counting again
+	overloadLoad   = 0.95  // sampling: no idle time left, the samples can't tell the TPS
+	keepUpTPS      = 19.5  // counting: below, the server falls behind
 	pausedLoad     = 0.005 // below: the server does no tick work (pause-when-empty-seconds)
 	threadDumpWait = time.Minute
 )
@@ -104,7 +108,12 @@ type Ticks struct {
 	ThreadID func(pid int, name string) (tid int, named bool, err error)
 	// Jcmd runs Thread.print when the JVM has no native thread names (Java 8).
 	Jcmd func(ctx context.Context, t attach.Target, cmd string) (string, error)
-	Log  *slog.Logger
+	// HostTID turns the Server thread's id into the host's (container.Proc).
+	HostTID func(pid, nsTID int) (int, error)
+	// SchedStat returns the ns a thread ran and waited for a CPU (container.Proc);
+	// nil: counting windows have no tick time while the server keeps up.
+	SchedStat func(pid, tid int) (run, wait int64, err error)
+	Log       *slog.Logger
 
 	// Overridable in tests.
 	Now   func() time.Time
@@ -137,12 +146,13 @@ type monitor struct {
 	op        sync.Mutex // one profiler command at a time; guards the fields below
 	active    bool
 	mode      string
-	tid       int
-	since     time.Time // start of the session, or the last dump
-	lastCount int64
-	cooldown  int
-	classOK   bool // the tick frames are of ServerClass, which counting instruments
-	prepared  bool // free space checked, library in place
+	tid       int        // Server thread in the container's PID namespace
+	hostTID   int        // the same thread as the host knows it, 0 until looked up
+	since     time.Time  // start of the session, or the last dump
+	lastCount int64      // counting: calls of tickServer at since
+	busy0     busySample // counting: times of the Server thread at since
+	classOK   bool       // the tick frames are of ServerClass, which counting instruments
+	prepared  bool       // free space checked, library in place
 	nextDump  time.Time
 	noSamples bool // logged that a window had no samples of the Server thread
 }
@@ -432,7 +442,13 @@ func (m *monitor) begin(ctx context.Context) error {
 		}
 		m.prepared = true
 	}
-	if err := m.startSession(ctx, t, TickMethodSampling); err != nil {
+	mode := TickMethodSampling
+	k.mu.Lock()
+	if m.classOK && parse.TickServerMethod(m.mapping) != "" {
+		mode = TickMethodCounting // known from an earlier session
+	}
+	k.mu.Unlock()
+	if err := m.startSession(ctx, t, mode); err != nil {
 		return err
 	}
 	k.mu.Lock()
@@ -507,6 +523,9 @@ func (m *monitor) startSession(ctx context.Context, t Target, mode string) error
 		return err
 	}
 	m.active, m.mode, m.since, m.lastCount = true, mode, k.Now(), 0
+	if mode == TickMethodCounting {
+		m.busy0 = m.busyNow(ctx, t)
+	}
 	k.mu.Lock()
 	m.method = mode
 	k.mu.Unlock()
@@ -581,9 +600,7 @@ func (m *monitor) collectSampling(ctx context.Context, t Target) error {
 	}
 	m.record(w)
 	next := TickMethodSampling
-	if m.cooldown > 0 {
-		m.cooldown--
-	} else if w.Overloaded && m.classOK {
+	if m.classOK && parse.TickServerMethod(mapping) != "" {
 		next = TickMethodCounting
 	}
 	return m.startSession(ctx, t, next)
@@ -644,7 +661,8 @@ func evalSamples(out string, tid int) (w TickWindowResult, mapping string, class
 	return w, mapping, classOK
 }
 
-// collectCounting ends the window: dump the calls counted so far (op held).
+// collectCounting ends the window: dump the calls counted so far and read the
+// times of the Server thread (op held). The session keeps running.
 func (m *monitor) collectCounting(ctx context.Context, t Target) error {
 	k := m.k
 	at := k.Now()
@@ -656,27 +674,95 @@ func (m *monitor) collectCounting(ctx context.Context, t Target) error {
 	for _, th := range parse.ParseCollapsed(m.output(t)) {
 		count += th.Count
 	}
-	ticks := max(count-m.lastCount, 0)
-	w := TickWindowResult{StartedAt: m.since, EndedAt: at, State: TickStateOK, Method: TickMethodCounting, Ticks: ticks}
-	m.lastCount, m.since = count, at
-	sec := w.EndedAt.Sub(w.StartedAt).Seconds()
-	if sec <= 0 {
-		return nil
-	}
-	tps := float64(ticks) / sec
-	w.TPS = &tps
-	if tps < keepUpTPS {
-		w.Overloaded = true
-		if ticks > 0 {
-			ms := sec * 1000 / float64(ticks)
-			w.TickMs = &ms
-		}
-	}
-	m.record(w)
-	if tps >= keepUpTPS {
-		m.stopSession(ctx, t)
-		m.cooldown = countCooldown
-		return m.startSession(ctx, t, TickMethodSampling)
+	b := m.busyNow(ctx, t)
+	w := evalCounting(max(count-m.lastCount, 0), at.Sub(m.since), m.busy0, b)
+	w.StartedAt, w.EndedAt = m.since, at
+	m.lastCount, m.since, m.busy0 = count, at, b
+	if w.State != "" {
+		m.record(w)
 	}
 	return nil
+}
+
+// busySample are the times of the Server thread at one moment, in ms.
+type busySample struct {
+	ok        bool    // run and wait are known
+	run, wait float64 // ran on a CPU, waited for one (schedstat)
+	safepoint float64 // the JVM's time in safepoints (all threads stopped), -1 if unknown
+}
+
+// busyNow reads the times of the Server thread (op held). Without them the
+// sample is not ok; a thread that is gone is looked up again next time.
+func (m *monitor) busyNow(ctx context.Context, t Target) busySample {
+	k := m.k
+	b := busySample{safepoint: -1}
+	if d, err := k.Profiles.ReadHsperf(t.Hsperf); err == nil {
+		if v, ok := d.Long("sun.rt.safepointTime"); ok {
+			b.safepoint = d.TicksToMs(v)
+		}
+	}
+	if k.SchedStat == nil || k.HostTID == nil {
+		return b
+	}
+	if m.hostTID == 0 {
+		if m.tid == 0 {
+			m.tid = m.serverThread(ctx, t)
+		}
+		if m.tid == 0 {
+			return b
+		}
+		h, err := k.HostTID(t.Attach.HostPID, m.tid)
+		if err != nil {
+			m.tid = 0
+			return b
+		}
+		m.hostTID = h
+	}
+	run, wait, err := k.SchedStat(t.Attach.HostPID, m.hostTID)
+	if err != nil {
+		m.tid, m.hostTID = 0, 0
+		return b
+	}
+	b.ok, b.run, b.wait = true, float64(run)/1e6, float64(wait)/1e6
+	return b
+}
+
+// evalCounting evaluates a counting window of length d with ticks calls of
+// tickServer; b0 and b1 are the times of the Server thread at its start and
+// end. The thread is busy while it runs or waits for a CPU. Safepoints stop
+// it too, but only hurt a tick while it works: they count with the busy
+// share of the rest of the window. State "" means nothing to record.
+func evalCounting(ticks int64, d time.Duration, b0, b1 busySample) TickWindowResult {
+	ms := float64(d.Microseconds()) / 1000
+	if ms <= 0 {
+		return TickWindowResult{}
+	}
+	tps := float64(ticks) * 1000 / ms
+	w := TickWindowResult{State: TickStateOK, Method: TickMethodCounting, Ticks: ticks, TPS: &tps, Overloaded: tps < keepUpTPS}
+	if b0.ok && b1.ok && b1.run >= b0.run && b1.wait >= b0.wait {
+		busy := (b1.run - b0.run) + (b1.wait - b0.wait)
+		if b0.safepoint >= 0 && b1.safepoint >= b0.safepoint {
+			sp := min(b1.safepoint-b0.safepoint, ms)
+			busy += sp * min(1, busy/max(ms-sp, 1))
+		}
+		load := min(busy/ms, 1)
+		w.Load = &load
+		if load < pausedLoad {
+			// pause-when-empty-seconds: tickServer may still be called, but does nothing.
+			w.State, w.Overloaded = TickStatePaused, false
+			if ticks == 0 {
+				w.TPS = nil // no tick loop running, not 0 TPS of a stuck one
+			}
+		}
+		if !w.Overloaded && ticks > 0 {
+			tick := busy / float64(ticks)
+			w.TickMs = &tick
+		}
+	}
+	if w.Overloaded && ticks > 0 {
+		// No idle time left: a tick takes its share of the window, also while blocked.
+		tick := ms / float64(ticks)
+		w.TickMs = &tick
+	}
+	return w
 }

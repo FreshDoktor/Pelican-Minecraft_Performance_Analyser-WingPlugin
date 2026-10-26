@@ -56,6 +56,8 @@ type fakeAttach struct {
 	loadErr   error
 	collapsed string
 	tickOut   func(options string) string // output of the tick monitor's commands
+	schedRun  int64                       // ns the Server thread ran (schedstat)
+	schedWait int64                       // ns it waited for a CPU
 	stopTook  time.Duration
 	timers    *fakeTimers
 	cpuStep   int64 // CPU ticks per read

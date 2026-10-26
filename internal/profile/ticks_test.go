@@ -205,6 +205,8 @@ func TestTicksModes(t *testing.T) {
 	k, l, c, tg := newTicks(t)
 	var mu sync.Mutex
 	window, total := samples(200, 50), 0
+	var run, wait int64 // ns of the Server thread
+	schedErr := error(nil)
 	l.out = func(o string) string {
 		mu.Lock()
 		defer mu.Unlock()
@@ -213,7 +215,32 @@ func TestTicksModes(t *testing.T) {
 		}
 		return window
 	}
-	set := func(w string, n int) { mu.Lock(); window, total = w, n; mu.Unlock() }
+	lookups := 0
+	k.HostTID = func(pid, tid int) (int, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		lookups++
+		if pid != 4242 || tid != 60 {
+			return 0, container.ErrNoThread
+		}
+		return 4134, nil
+	}
+	k.SchedStat = func(pid, tid int) (int64, int64, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if tid != 4134 {
+			return 0, 0, errors.New("wrong thread")
+		}
+		return run, wait, schedErr
+	}
+	// set adds calls of tickServer and times of the Server thread (ms).
+	set := func(n int, runMs, waitMs float64) {
+		mu.Lock()
+		total += n
+		run += int64(runMs * 1e6)
+		wait += int64(waitMs * 1e6)
+		mu.Unlock()
+	}
 
 	s, err := k.Get(context.Background(), tg)
 	if err != nil {
@@ -226,67 +253,82 @@ func TestTicksModes(t *testing.T) {
 		t.Errorf("library %q", b)
 	}
 	m := k.monitorOf("s1")
-	step := func() {
+	step := func() TickWindowResult {
 		t.Helper()
 		c.Add(TickWindow)
 		if !m.step() {
 			t.Fatal("monitor ended")
 		}
+		return lastWindow(t, k, tg)
 	}
 
-	step()
-	w := lastWindow(t, k, tg)
-	if w.State != TickStateOK || *w.TPS != 20 || *w.TickMs != 10 || w.Samples != 250 || w.EndedAt.Sub(w.StartedAt) != TickWindow {
+	// The first window samples and finds the mapping, then the monitor counts.
+	w := step()
+	if w.Method != TickMethodSampling || w.State != TickStateOK || *w.TPS != 20 || *w.TickMs != 10 || w.Samples != 250 || w.EndedAt.Sub(w.StartedAt) != TickWindow {
 		t.Errorf("sampling: %+v", w)
 	}
-	want := "start,event=wall,interval=20ms,filter=60,threads,cstack=no,log=/tmp/mpa-ticks-00000000000000aa.log"
-	if got := l.calls(); got[0] != want || !strings.HasPrefix(got[1], "stop,collapsed,file=/tmp/mpa-ticks-00000000000000aa.collapsed,") || got[2] != want {
+	sampling := "start,event=wall,interval=20ms,filter=60,threads,cstack=no,log=/tmp/mpa-ticks-00000000000000aa.log"
+	counting := "start,event=net.minecraft.server.MinecraftServer.tickServer,interval=1,threads,log=/tmp/mpa-ticks-00000000000000aa.log"
+	if got := l.calls(); len(got) != 3 || got[0] != sampling || !strings.HasPrefix(got[1], "stop,collapsed,file=/tmp/mpa-ticks-00000000000000aa.collapsed,") || got[2] != counting {
 		t.Errorf("commands %q", got)
 	}
-
-	// No idle time left: the next window counts.
-	set(samples(0, 250), 0)
-	step()
-	if w := lastWindow(t, k, tg); !w.Overloaded || w.TPS != nil || *w.Load != 1 {
-		t.Errorf("overloaded sample: %+v", w)
-	}
-	got := l.calls()
-	if o := got[len(got)-1]; o != "start,event=net.minecraft.server.MinecraftServer.tickServer,interval=1,threads,log=/tmp/mpa-ticks-00000000000000aa.log" {
-		t.Errorf("counting start %q", o)
-	}
-	if s, _ := k.Get(context.Background(), tg); s.Method != TickMethodCounting {
+	if s, _ := k.Get(context.Background(), tg); s.Method != TickMethodCounting || s.Mapping != "mojmap" {
 		t.Errorf("method %q", s.Method)
 	}
-	set("", 71)
-	step()
-	if w := lastWindow(t, k, tg); w.Method != TickMethodCounting || w.Ticks != 71 || *w.TPS != 14.2 || math.Abs(*w.TickMs-5000.0/71) > 1e-9 || !w.Overloaded {
-		t.Errorf("counting: %+v", w)
-	}
-	set("", 142)
-	step()
-	if w := lastWindow(t, k, tg); w.Ticks != 71 {
-		t.Errorf("counting delta: %+v", w)
-	}
 
-	// Keeps up again: back to sampling, no counting during the cooldown.
-	set(samples(0, 250), 242)
-	step()
-	if w := lastWindow(t, k, tg); w.Overloaded || *w.TPS != 20 || w.TickMs != nil {
-		t.Errorf("keeps up: %+v", w)
+	// Keeps up: 100 ticks, 440 ms busy (400 ran, 40 waited for a CPU).
+	set(100, 400, 40)
+	w = step()
+	if w.Method != TickMethodCounting || w.State != TickStateOK || w.Ticks != 100 || *w.TPS != 20 ||
+		math.Abs(*w.TickMs-4.4) > 1e-9 || math.Abs(*w.Load-0.088) > 1e-9 || w.Overloaded || w.Samples != 0 {
+		t.Errorf("counting: %+v (tick %v, load %v)", w, deref(w.TickMs), deref(w.Load))
 	}
-	got = l.calls()
-	if !strings.HasPrefix(got[len(got)-2], "stop,") || got[len(got)-1] != want {
-		t.Errorf("back to sampling: %q", got[len(got)-3:])
+	// Falls behind: 71 ticks, the thread never rests. A tick takes its share of the window.
+	set(71, 4600, 400)
+	w = step()
+	if w.Ticks != 71 || *w.TPS != 14.2 || math.Abs(*w.TickMs-5000.0/71) > 1e-9 || *w.Load != 1 || !w.Overloaded {
+		t.Errorf("overloaded: %+v", w)
 	}
-	for i := 0; i < countCooldown; i++ {
-		step()
-		if s, _ := k.Get(context.Background(), tg); s.Method != TickMethodSampling {
-			t.Fatalf("cooldown window %d: method %s", i, s.Method)
+	// Catches up, and stays counting: no command but dumps.
+	n := len(l.calls())
+	set(110, 2000, 0)
+	w = step()
+	if w.Ticks != 110 || *w.TPS != 22 || w.Overloaded || math.Abs(*w.TickMs-2000.0/110) > 1e-9 {
+		t.Errorf("catching up: %+v", w)
+	}
+	for _, o := range l.calls()[n:] {
+		if !strings.HasPrefix(o, "dump,") {
+			t.Errorf("command while counting: %q", o)
 		}
 	}
+	// pause-when-empty-seconds: ticks without work.
+	set(100, 10, 0)
+	if w = step(); w.State != TickStatePaused || *w.TPS != 20 || math.Abs(*w.TickMs-0.1) > 1e-9 || w.Overloaded {
+		t.Errorf("paused: %+v", w)
+	}
+	if s, _ := k.Get(context.Background(), tg); s.State != TickStatePaused {
+		t.Errorf("state %s", s.State)
+	}
+	set(0, 1, 0)
+	if w = step(); w.State != TickStatePaused || w.TPS != nil || w.TickMs != nil || w.Overloaded {
+		t.Errorf("paused without ticks: %+v", w)
+	}
+	// Without schedstat: TPS only, the thread is looked up again.
+	mu.Lock()
+	schedErr = errors.New("gone")
+	mu.Unlock()
+	set(100, 400, 0)
+	if w = step(); w.State != TickStateOK || *w.TPS != 20 || w.TickMs != nil || w.Load != nil {
+		t.Errorf("without schedstat: %+v", w)
+	}
+	mu.Lock()
+	schedErr, before := nil, lookups
+	mu.Unlock()
+	set(100, 400, 0)
 	step()
-	if s, _ := k.Get(context.Background(), tg); s.Method != TickMethodCounting {
-		t.Errorf("after the cooldown: method %s", s.Method)
+	set(100, 300, 0)
+	if w = step(); w.TickMs == nil || math.Abs(*w.TickMs-3) > 1e-9 || lookups != before+1 {
+		t.Errorf("schedstat back: %+v, %d lookups", w, lookups-before)
 	}
 
 	// Ends after a minute without Get.
@@ -309,6 +351,27 @@ func TestTicksModes(t *testing.T) {
 	}
 	if len(k.monitorOf("s1").windowsCopy()) != 0 {
 		t.Error("history kept")
+	}
+}
+
+func TestEvalCountingSafepoints(t *testing.T) {
+	b := func(run, sp float64) busySample { return busySample{ok: true, run: run, safepoint: sp} }
+	// 1 s of safepoints in a window where the thread worked half of the rest: half of them hurt a tick.
+	w := evalCounting(100, TickWindow, b(0, 0), b(2000, 1000))
+	if math.Abs(*w.Load-0.5) > 1e-9 || math.Abs(*w.TickMs-25) > 1e-9 {
+		t.Errorf("safepoints: load %v, tick %v", deref(w.Load), deref(w.TickMs))
+	}
+	// Safepoints unknown: only the thread's own times.
+	w = evalCounting(100, TickWindow, b(0, -1), b(2000, -1))
+	if math.Abs(*w.Load-0.4) > 1e-9 {
+		t.Errorf("no safepoints: load %v", deref(w.Load))
+	}
+	// A new thread (times went back): no load.
+	if w = evalCounting(100, TickWindow, b(3000, 0), b(10, 0)); w.Load != nil || w.TickMs != nil || *w.TPS != 20 {
+		t.Errorf("times back: %+v", w)
+	}
+	if w = evalCounting(100, 0, b(0, 0), b(10, 0)); w.State != "" {
+		t.Errorf("empty window: %+v", w)
 	}
 }
 
@@ -352,12 +415,13 @@ func TestTicksYield(t *testing.T) {
 	release() // once
 	c.Add(TickWindow)
 	m.step()
-	if s, _ := k.Get(context.Background(), tg); s.State != TickStateStarting || s.Method != TickMethodSampling {
+	// The mapping is known: counting right away.
+	if s, _ := k.Get(context.Background(), tg); s.State != TickStateStarting || s.Method != TickMethodCounting {
 		t.Errorf("resumed: %+v", s)
 	}
 	c.Add(TickWindow)
 	m.step()
-	if w := lastWindow(t, k, tg); w.State != TickStateOK || *w.TickMs != 5 {
+	if w := lastWindow(t, k, tg); w.State != TickStateOK || w.Method != TickMethodCounting || w.Ticks != 250 {
 		t.Errorf("after resume: %+v", w)
 	}
 

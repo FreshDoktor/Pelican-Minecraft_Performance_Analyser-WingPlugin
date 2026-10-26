@@ -78,7 +78,7 @@ func testServer(t *testing.T) *Server {
 
 	c := &clock{t: time.UnixMilli(exBridgeStart)}
 	s := &Server{
-		Version:    "0.2.1",
+		Version:    "0.3.0",
 		Creds:      config.StaticCredentials(testTokenID, testToken),
 		Docker:     fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
 		Proc:       fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
@@ -120,11 +120,17 @@ func testServer(t *testing.T) *Server {
 		Max:      10,
 		Profiles: s.Profiles,
 		ThreadID: func(int, string) (int, bool, error) { return 60, true, nil },
-		Jcmd:     f.Jcmd,
-		Now:      c.Now,
-		Every:    f.timers.Every,
-		NewID:    func() string { return exTickMonitorID },
-		Log:      s.Log,
+		HostTID:  func(int, int) (int, error) { return 4134, nil },
+		SchedStat: func(int, int) (int64, int64, error) {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			return f.schedRun, f.schedWait, nil
+		},
+		Jcmd:  f.Jcmd,
+		Now:   c.Now,
+		Every: f.timers.Every,
+		NewID: func() string { return exTickMonitorID },
+		Log:   s.Log,
 	}
 	s.Profiles.Yield = s.Ticks.Yield
 	s.Init()
@@ -403,7 +409,7 @@ func TestPaused(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	s := testServer(t)
-	ua := "MPA Bridge/v0.2.1 (id:" + testTokenID + ")"
+	ua := "MPA Bridge/v0.3.0 (id:" + testTokenID + ")"
 	path := "/api/v1/servers/" + uuidRunning + "/status"
 	for name, c := range map[string]struct {
 		header string

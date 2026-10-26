@@ -1,7 +1,7 @@
 {
   "state": "server_not_running",
   "bridge": {
-    "version": "0.2.1",
+    "version": "0.3.0",
     "api_version": 1,
     "features": [
       "status",

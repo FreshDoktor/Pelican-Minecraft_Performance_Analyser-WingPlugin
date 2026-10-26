@@ -46,6 +46,14 @@ func exTicks(f *fakeAttach, idle, work, calls int) {
 	f.mu.Unlock()
 }
 
+// exBusy lets the Server thread run and wait for a CPU (schedstat), in ms.
+func exBusy(f *fakeAttach, runMs, waitMs float64) {
+	f.mu.Lock()
+	f.schedRun += int64(runMs * 1e6)
+	f.schedWait += int64(waitMs * 1e6)
+	f.mu.Unlock()
+}
+
 // tickWindow lets the tick monitor end one window (the ticker fires a window
 // after the last restart, which took stopTook) and waits until the history
 // has n windows.
@@ -75,40 +83,48 @@ func tickExamples(t *testing.T) map[string]any {
 	ex := map[string]any{}
 	path := "/api/v1/servers/" + exUUID + "/ticks"
 
-	// Vanilla, a few players: 4-5 ms per tick.
+	// Vanilla, a few players: 4-5 ms per tick. The first window samples and
+	// finds the mapping, from then on the monitor counts tickServer.
 	s := testServer(t)
 	f, c := fakes(s)
 	c.Set(time.UnixMilli(exTickStart))
 	exTicks(f, 229, 21, 0)
 	ex["ticks-starting"] = getAt(t, s, path, 200)
 	tickWindow(t, s, path, 1)
-	exTicks(f, 231, 19, 0)
+	exTicks(f, 0, 0, 100)
+	exBusy(f, 430, 16)
 	tickWindow(t, s, path, 2)
-	exTicks(f, 226, 24, 0)
+	exTicks(f, 0, 0, 200)
+	exBusy(f, 470, 12)
 	tickWindow(t, s, path, 3)
 	ex["ticks"] = getAt(t, s, path, 200)
 
-	// pause-when-empty-seconds: the Server thread only waits.
+	// pause-when-empty-seconds: the Server thread only waits; tickServer is
+	// still called, but does nothing.
 	s = testServer(t)
 	f, c = fakes(s)
 	c.Set(time.UnixMilli(exTickStart))
 	exTicks(f, 250, 0, 0)
 	getAt(t, s, path, 200)
 	tickWindow(t, s, path, 1)
+	exTicks(f, 0, 0, 100)
+	exBusy(f, 4, 1)
+	tickWindow(t, s, path, 2)
 	ex["ticks-paused"] = getAt(t, s, path, 200)
 
-	// Overloaded: no idle time left, the monitor counts tickServer (about 70 ms per tick).
+	// Overloaded: no idle time left in the first window, then about 70 ms per tick.
 	s = testServer(t)
 	f, c = fakes(s)
 	c.Set(time.UnixMilli(exTickStart))
-	exTicks(f, 61, 189, 0)
+	exTicks(f, 0, 250, 0)
 	getAt(t, s, path, 200)
 	tickWindow(t, s, path, 1)
-	exTicks(f, 0, 250, 71)
+	exTicks(f, 0, 0, 71)
+	exBusy(f, 4710, 262)
 	tickWindow(t, s, path, 2)
+	exTicks(f, 0, 0, 143)
+	exBusy(f, 4795, 186)
 	tickWindow(t, s, path, 3)
-	exTicks(f, 0, 250, 143)
-	tickWindow(t, s, path, 4)
 	ex["ticks-overloaded"] = getAt(t, s, path, 200)
 
 	// A lag analysis takes the profiler: the monitor waits.
@@ -159,18 +175,22 @@ func TestTicksExamples(t *testing.T) {
 	check("ticks-starting", r.State == profile.TickStateStarting && *r.Reason == profile.TickReasonFirstWindow &&
 		*r.Method == "sampling" && r.Current == nil && len(r.History) == 0 && r.Error == nil)
 	r = decodeTicks(t, ex["ticks"].(json.RawMessage))
-	check("ticks", r.State == "ok" && r.Reason == nil && *r.Mapping == "mojmap" && len(r.History) == 3 &&
-		*r.Current.TPS == 20 && *r.Current.TickTimeMs == 4.8 && *r.Current.LoadPercent == 9.6 && *r.Current.Samples == 250 &&
-		r.Current.Ticks == nil && r.Current.DurationMs == 4995.129)
-	r = decodeTicks(t, ex["ticks-paused"].(json.RawMessage))
-	check("ticks-paused", r.State == "paused" && r.Current.TPS == nil && r.Current.TickTimeMs == nil && *r.Current.LoadPercent == 0)
-	r = decodeTicks(t, ex["ticks-overloaded"].(json.RawMessage))
 	h := r.History
-	check("ticks-overloaded", len(h) == 4 && *r.Method == "counting" &&
-		*h[0].TickTimeMs == 37.8 && !h[0].Overloaded &&
-		h[1].Overloaded && h[1].TPS == nil && *h[1].LoadPercent == 100 &&
-		*h[2].Method == "counting" && *h[2].Ticks == 71 && *h[2].TPS == 14.21 && h[2].Overloaded &&
-		*h[3].Ticks == 72 && h[3].Samples == nil)
+	check("ticks", r.State == "ok" && r.Reason == nil && *r.Mapping == "mojmap" && *r.Method == "counting" && len(h) == 3 &&
+		*h[0].Method == "sampling" && *h[0].TPS == 20 && *h[0].TickTimeMs == 4.2 && *h[0].Samples == 250 && h[0].Ticks == nil &&
+		*h[1].Method == "counting" && *h[1].Ticks == 100 && *h[1].TPS == 20.02 && *h[1].TickTimeMs == 4.46 && *h[1].LoadPercent == 8.93 &&
+		*h[2].Ticks == 100 && *h[2].TPS == 20 && *h[2].TickTimeMs == 4.82 && *h[2].LoadPercent == 9.64 && h[2].Samples == nil &&
+		h[2].DurationMs == 5000 && !h[2].Overloaded)
+	r = decodeTicks(t, ex["ticks-paused"].(json.RawMessage))
+	h = r.History
+	check("ticks-paused", r.State == "paused" && len(h) == 2 && h[0].TPS == nil && h[0].TickTimeMs == nil && *h[0].LoadPercent == 0 &&
+		*h[1].Method == "counting" && *h[1].TPS == 20.02 && *h[1].TickTimeMs == 0.05 && *h[1].LoadPercent == 0.1 && !h[1].Overloaded)
+	r = decodeTicks(t, ex["ticks-overloaded"].(json.RawMessage))
+	h = r.History
+	check("ticks-overloaded", len(h) == 3 && *r.Method == "counting" &&
+		*h[0].Method == "sampling" && h[0].Overloaded && h[0].TPS == nil && *h[0].LoadPercent == 100 &&
+		*h[1].Ticks == 71 && *h[1].TPS == 14.21 && h[1].Overloaded && *h[1].TickTimeMs == 70.354 && *h[1].LoadPercent == 99.54 &&
+		*h[2].Ticks == 72 && *h[2].TPS == 14.4 && *h[2].TickTimeMs == 69.444 && *h[2].LoadPercent == 99.62)
 	r = decodeTicks(t, ex["ticks-suspended"].(json.RawMessage))
 	check("ticks-suspended", r.State == "suspended" && *r.Reason == "profile_running" && r.Method == nil &&
 		len(r.History) == 2 && r.History[1].State == "suspended" && r.History[1].Method == nil)

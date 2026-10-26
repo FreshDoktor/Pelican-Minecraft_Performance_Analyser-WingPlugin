@@ -169,4 +169,31 @@ func TestThreadID(t *testing.T) {
 	if tid, _, err := p.ThreadID(4100, "Server thread"); tid != 60 || err != nil {
 		t.Errorf("namespace: %d %v", tid, err)
 	}
+	if tid, err := p.HostTID(4100, 60); tid != 4134 || err != nil {
+		t.Errorf("host id: %d %v", tid, err)
+	}
+	// Without NSpid (no namespace) both ids are the same.
+	if tid, err := p.HostTID(26, 60); tid != 60 || err != nil {
+		t.Errorf("host id without NSpid: %d %v", tid, err)
+	}
+	if _, err := p.HostTID(4100, 61); !errors.Is(err, ErrNoThread) {
+		t.Errorf("unknown id: %v", err)
+	}
+}
+
+func TestSchedStat(t *testing.T) {
+	root := t.TempDir()
+	// From the test node, 2026-10-26.
+	write(t, filepath.Join(root, "1442433", "task", "1442467", "schedstat"), "2364390906440 196701662398 28187259\n")
+	p := Proc{Root: root}
+	if run, wait, err := p.SchedStat(1442433, 1442467); run != 2364390906440 || wait != 196701662398 || err != nil {
+		t.Errorf("schedstat: %d %d %v", run, wait, err)
+	}
+	if _, _, err := p.SchedStat(1442433, 1); err == nil {
+		t.Error("no thread: no error")
+	}
+	write(t, filepath.Join(root, "1442433", "task", "2", "schedstat"), "12\n")
+	if _, _, err := p.SchedStat(1442433, 2); err == nil {
+		t.Error("short: no error")
+	}
 }

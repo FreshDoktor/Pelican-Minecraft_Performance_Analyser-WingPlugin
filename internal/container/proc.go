@@ -124,6 +124,47 @@ func (p Proc) ThreadID(pid int, name string) (tid int, named bool, err error) {
 	return p.nsID(filepath.Join(dir, strconv.Itoa(tid), "status"), tid), true, nil
 }
 
+// HostTID returns the host's id of the thread of pid that has the id nsTID in
+// the container's PID namespace (the reverse of ThreadID's translation).
+func (p Proc) HostTID(pid, nsTID int) (int, error) {
+	dir := filepath.Join(p.Root, strconv.Itoa(pid), "task")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+	for _, e := range entries {
+		id, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		if p.nsID(filepath.Join(dir, e.Name(), "status"), id) == nsTID {
+			return id, nil
+		}
+	}
+	return 0, ErrNoThread
+}
+
+// SchedStat returns how long a thread ran on a CPU and how long it waited
+// for one while runnable (CPU limit of the container included), in ns, from
+// /proc/<pid>/task/<tid>/schedstat (tid as the host knows it).
+func (p Proc) SchedStat(pid, tid int) (run, wait int64, err error) {
+	b, err := os.ReadFile(filepath.Join(p.Root, strconv.Itoa(pid), "task", strconv.Itoa(tid), "schedstat"))
+	if err != nil {
+		return 0, 0, err
+	}
+	f := strings.Fields(string(b))
+	if len(f) < 2 {
+		return 0, 0, errors.New("container: short schedstat")
+	}
+	if run, err = strconv.ParseInt(f[0], 10, 64); err != nil {
+		return 0, 0, err
+	}
+	if wait, err = strconv.ParseInt(f[1], 10, 64); err != nil {
+		return 0, 0, err
+	}
+	return run, wait, nil
+}
+
 // nsID returns the last value of NSpid in a status file, def if there is none.
 func (p Proc) nsID(status string, def int) int {
 	b, err := os.ReadFile(status)

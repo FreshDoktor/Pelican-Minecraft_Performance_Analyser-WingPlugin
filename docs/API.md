@@ -46,7 +46,7 @@ If the contract changes, this file and the examples change first, then both side
 | Header | Direction | Value |
 | --- | --- | --- |
 | `Authorization` | request | `Bearer <token>`: the **node token of Wings** (`token` in `/etc/pelican/config.yml`, i.e. `daemon_token` of the node in the panel). Compared in constant time. |
-| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.2.1 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
+| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.3.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
 | `Content-Type` | request | `application/json` for request bodies (`POST /profiles`). Bodies are limited to 4 KiB. |
 
 The bridge resolves the token like Wings: `WINGS_TOKEN` / `WINGS_TOKEN_ID` take precedence over the
@@ -105,7 +105,7 @@ profiles but without the tick monitor report).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `bridge_version` | string | semver, e.g. `0.2.1` |
+| `bridge_version` | string | semver, e.g. `0.3.0` |
 | `api_version` | integer | `1` |
 | `features` | string[] | see [Versioning](#versioning) |
 | `started_at` | Unix ms | start of the bridge process |
@@ -539,7 +539,7 @@ Immersive Snow 28 resp. 52 of 1200 (the mod waits for chunks inside the tick), t
 
 ### `GET /ticks`
 
-Feature `ticks`. Approximate TPS and MSPT of the server for a display under the console, with a
+Feature `ticks`. TPS and approximate MSPT of the server for a display under the console, with a
 history of 10 minutes. Poll every 5 s while the console is open. Answers within milliseconds; the
 measuring runs in the background.
 
@@ -560,21 +560,29 @@ monitors run on a node (`mpa-bridge.yml`, default 10); they don't count against 
 Files in the container's `/tmp`: `mpa-ticks-<id>.collapsed` and `.log` for a few milliseconds per
 window, removed right away and when the monitor ends.
 
-**How it measures** (checked against a JVM with a tick loop like Minecraft's: 10, 30 and 70 ms of work
-per tick were measured as 10.0 ms, 30.0 ms and 14.2 TPS):
+**How it measures** (since 0.3.0; checked against a JVM with a tick loop like Minecraft's: 10, 30 and
+70 ms of work per tick were measured as 10.0 ms, 30.0 ms and 14.2 TPS):
 
-- `sampling` (default): async-profiler samples only the `Server thread` (wall clock, every
-  `interval_ms` = 20 ms, about 250 samples per window). Samples in an idle method (see
-  [Tick and idle methods](#tick-and-idle-methods)) are idle time, the rest is tick work.
-  `load_percent` is the share of tick work; at 20 TPS `tick_time_ms = load × 50 ms` and `tps` is
-  **assumed** to be `target_tps` (20; `/tick rate` is not taken into account). At 95 % load and more
-  the samples can't tell the TPS: the window is `overloaded` with `tps` and `tick_time_ms` `null`,
-  and the monitor switches to counting.
-- `counting`: async-profiler counts the calls of `MinecraftServer.tickServer` (the name of the
-  mapping). `tps` is exact; with no idle time left a tick takes `tick_time_ms = duration / ticks`.
-  When the server keeps up again (`tps` ≥ 19.5) the window has `tps` but `tick_time_ms` `null`, and the
-  monitor goes back to sampling, for at least 6 windows. Switching instruments the class
-  `MinecraftServer` (a short safepoint), so it only happens when the server is overloaded.
+- `sampling` (the first window of a monitor): async-profiler samples only the `Server thread` (wall
+  clock, every `interval_ms` = 20 ms, about 250 samples per window). The samples tell the `mapping`.
+  Samples in an idle method (see [Tick and idle methods](#tick-and-idle-methods)) are idle time, the
+  rest is tick work. `load_percent` is the share of tick work; at 20 TPS
+  `tick_time_ms = load × 50 ms` and `tps` is **assumed** to be `target_tps` (20; `/tick rate` is not
+  taken into account). At 95 % load and more the samples can't tell the TPS: the window is
+  `overloaded` with `tps` and `tick_time_ms` `null`.
+- `counting` (every window after the mapping is known, until the monitor ends): async-profiler counts
+  the calls of `MinecraftServer.tickServer` (the name of the mapping), `tps` is exact (above 20 while
+  the server catches up after a lag). The time comes from the kernel: the `Server thread` is busy
+  while it runs on a CPU or waits for one (`/proc/<pid>/task/<tid>/schedstat`, the wait includes the
+  container's CPU limit), plus the JVM's safepoints (`sun.rt.safepointTime`, e.g. GC pauses) in the
+  share the thread was busy in the rest of the window. `load_percent` = busy / duration. While the
+  server keeps up, `tick_time_ms = busy / ticks`; time the thread is blocked inside a tick (locks,
+  waiting for chunks) is missing there. When it falls behind (`tps` < 19.5) there is no idle time:
+  `tick_time_ms = duration / ticks`. Without `schedstat` (kernel without `CONFIG_SCHED_INFO`) a window
+  that keeps up has `tps` only. Counting instruments the class `MinecraftServer` (a short safepoint),
+  once per session: when the monitor starts and after a profile.
+- Stays `sampling` when the tick frames aren't of `net/minecraft/server/MinecraftServer` (counting
+  instruments that class); then an `overloaded` window has no TPS.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -598,7 +606,7 @@ per tick were measured as 10.0 ms, 30.0 ms and 14.2 TPS):
 | --- | --- | --- |
 | `starting` | monitor or JVM just started | nothing yet, poll again |
 | `ok` | `current` has values (or is `overloaded`) | TPS/MSPT |
-| `paused` | the Server thread did (almost) no tick work: `load_percent` < 0.5 %, as with `pause-when-empty-seconds` and nobody online | "paused" instead of numbers |
+| `paused` | the Server thread did (almost) no tick work: `load_percent` < 0.5 %, as with `pause-when-empty-seconds` and nobody online. `counting` windows keep `tps` (`tickServer` still runs, `null` with 0 ticks) and `tick_time_ms` | "paused" instead of numbers |
 | `suspended` | a profile of this server runs; the monitor resumes after it | a gap |
 | `unsupported` | `no_server_thread` (a proxy such as Velocity, or the server is still starting) or `unknown_mapping` (samples without a known tick or idle method: obfuscated versions, or the world is still loading). Not final, the monitor keeps looking | nothing |
 | `error` | the last window failed, see `error` | nothing / last values |
@@ -611,9 +619,9 @@ Window (`current`, `history[]`):
 | `duration_ms` | number | `ended_at - started_at`, about 5000 |
 | `state` | enum | `ok` · `paused` · `suspended` · `unsupported` |
 | `method` | enum, nullable | `sampling` · `counting`; `null` for `suspended` |
-| `tps` | number, nullable | ticks per second (2 decimals); `null` when unknown (`overloaded` sampling, `paused`, `unsupported`, `suspended`) |
-| `tick_time_ms` | number, nullable | average duration of a tick (MSPT); `null` when unknown |
-| `load_percent` | number, nullable | `sampling`: share of tick work in the samples, 0–100; `null` for `counting` |
+| `tps` | number, nullable | ticks per second (2 decimals); `null` when unknown (`overloaded` or `paused` sampling, `paused` counting without ticks, `unsupported`, `suspended`) |
+| `tick_time_ms` | number, nullable | average duration of a tick (MSPT, 3 decimals); `null` when unknown (also `counting` without `schedstat` while the server keeps up) |
+| `load_percent` | number, nullable | how busy the Server thread was, 0–100. `sampling`: share of tick work in the samples; `counting`: busy time (see above) / duration, `null` without `schedstat` |
 | `overloaded` | bool | no idle time left in the tick loop (`sampling`: load ≥ 95 %; `counting`: `tps` < 19.5) |
 | `samples` | integer, nullable | `sampling`: samples of the Server thread |
 | `ticks` | integer, nullable | `counting`: calls of `tickServer` in the window |
@@ -670,7 +678,7 @@ All examples (except the `error-*` bodies) are recorded from the real HTTP handl
 (`Thread.print -l`, `GC.class_histogram -all`), command durations are fixed.
 Illustrative (format final, values plausible but not recorded): the `VM.flags`, `GC.heap_info` and
 `VM.metaspace` outputs behind `vm.json` and `metrics-live.json`, the stacks and GC/CPU numbers of the
-profile examples, the samples and call counts behind the `ticks*` examples.
+profile examples, the samples, call counts and `schedstat` times behind the `ticks*` examples.
 Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms128M -Xmx1907M`).
 
 | File | Endpoint / state |
@@ -697,9 +705,9 @@ Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms1
 | `profiles.json` | `GET /profiles` |
 | `profiles-empty.json` | `GET /profiles`, no profiles |
 | `ticks-starting.json` | `GET /ticks`, first call: monitor started, no window yet |
-| `ticks.json` | `GET /ticks`, three windows (sampling, 4–5 ms per tick) |
-| `ticks-paused.json` | `GET /ticks`, the Server thread only waits (`pause-when-empty-seconds`) |
-| `ticks-overloaded.json` | `GET /ticks`, no idle time left: the monitor counts the ticks (about 14 TPS) |
+| `ticks.json` | `GET /ticks`, a sampling window, then two counting windows (4–5 ms per tick) |
+| `ticks-paused.json` | `GET /ticks`, the Server thread only waits (`pause-when-empty-seconds`): sampling, then counting |
+| `ticks-overloaded.json` | `GET /ticks`, no idle time left: the sampling window has no TPS, the counting windows about 14 |
 | `ticks-suspended.json` | `GET /ticks` while a profile runs |
 | `ticks-unsupported.json` | `GET /ticks` on a proxy (no Server thread) |
 | `ticks-jvm-starting.json` | `GET /ticks`, JVM 12 s old, listener not running |
