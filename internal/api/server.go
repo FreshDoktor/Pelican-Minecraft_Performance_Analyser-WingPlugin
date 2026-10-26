@@ -112,14 +112,15 @@ var (
 
 // ServeHTTP checks IP and token, then routes.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	id, token := s.Creds.Get()
-	// Sent on every response so the panel can verify the node (also on errors).
-	w.Header().Set("User-Agent", "MPA Bridge/v"+s.Version+" (id:"+id+")")
-
+	// Without identity: an address outside allowed_ips learns neither the
+	// version nor the node's token_id.
 	if !s.ipAllowed(r.RemoteAddr) {
 		s.fail(w, r, newError(CodeIPNotAllowed, "", nil))
 		return
 	}
+	id, token := s.Creds.Get()
+	// Sent on every other response so the panel can verify the node (also on errors).
+	w.Header().Set("User-Agent", "MPA Bridge/v"+s.Version+" (id:"+id+")")
 	auth, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || token == "" || subtle.ConstantTimeCompare([]byte(auth), []byte(token)) != 1 {
 		w.Header().Set("WWW-Authenticate", "Bearer")

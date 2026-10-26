@@ -482,8 +482,9 @@ func TestAllowedIPs(t *testing.T) {
 		if w.Code != want {
 			t.Errorf("%s: %d, want %d", addr, w.Code, want)
 		}
-		if w.Header().Get("User-Agent") == "" {
-			t.Errorf("%s: User-Agent missing", addr)
+		// The identity (version, token_id) only goes to allowed addresses.
+		if ua := w.Header().Get("User-Agent"); (want == 403) != (ua == "") {
+			t.Errorf("%s: User-Agent %q", addr, ua)
 		}
 		if want == 403 && !equalJSON(t, readExample(t, "error-ip-not-allowed"), w.Body.Bytes()) {
 			t.Errorf("%s: body %s", addr, w.Body)
