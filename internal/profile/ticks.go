@@ -47,7 +47,7 @@ const (
 
 	TickStateStarting    = "starting"
 	TickStateOK          = "ok"
-	TickStatePaused      = "paused"
+	TickStateIdle        = "idle"
 	TickStateSuspended   = "suspended"
 	TickStateUnsupported = "unsupported"
 	TickStateError       = "error"
@@ -67,7 +67,7 @@ const (
 	tickOpTimeout  = 15 * time.Second
 	overloadLoad   = 0.95  // sampling: no idle time left, the samples can't tell the TPS
 	keepUpTPS      = 19.5  // counting: below, the server falls behind
-	pausedLoad     = 0.005 // below: the server does no tick work (pause-when-empty-seconds)
+	idleLoad       = 0.005 // below: the Server thread has hardly anything to do (idle)
 	threadDumpWait = time.Minute
 )
 
@@ -78,7 +78,7 @@ var ErrTooManyMonitors = errors.New("profile: too many tick monitors")
 type TickWindowResult struct {
 	StartedAt  time.Time
 	EndedAt    time.Time
-	State      string // ok, paused, suspended, unsupported
+	State      string // ok, idle, suspended, unsupported
 	Method     string // "" for suspended
 	Samples    int64  // sampling: samples of the Server thread
 	Ticks      int64  // counting: calls of tickServer
@@ -452,7 +452,7 @@ func (m *monitor) begin(ctx context.Context) error {
 		return err
 	}
 	k.mu.Lock()
-	if len(m.windows) == 0 || m.state != TickStateOK && m.state != TickStatePaused {
+	if len(m.windows) == 0 || m.state != TickStateOK && m.state != TickStateIdle {
 		m.state, m.reason, m.err = TickStateStarting, TickReasonFirstWindow, nil
 	}
 	k.mu.Unlock()
@@ -649,8 +649,8 @@ func evalSamples(out string, tid int) (w TickWindowResult, mapping string, class
 	load := float64(w.Samples-idle) / float64(w.Samples)
 	w.Load = &load
 	switch {
-	case load < pausedLoad:
-		w.State = TickStatePaused
+	case load < idleLoad:
+		w.State = TickStateIdle
 	case load >= overloadLoad:
 		// No idle time left: the TPS may be below 20, counting tells.
 		w.State, w.Overloaded = TickStateOK, true
@@ -747,11 +747,11 @@ func evalCounting(ticks int64, d time.Duration, b0, b1 busySample) TickWindowRes
 		}
 		load := min(busy/ms, 1)
 		w.Load = &load
-		if load < pausedLoad {
-			// pause-when-empty-seconds: tickServer may still be called, but does nothing.
-			w.State, w.Overloaded = TickStatePaused, false
+		if load < idleLoad {
+			// Idle: nobody online, or paused (pause-when-empty-seconds, tickServer still runs).
+			w.State, w.Overloaded = TickStateIdle, false
 			if ticks == 0 {
-				w.TPS = nil // no tick loop running, not 0 TPS of a stuck one
+				w.TPS = nil // no tick loop running (paused without ticks), not 0 TPS of a stuck one
 			}
 		}
 		if !w.Overloaded && ticks > 0 {

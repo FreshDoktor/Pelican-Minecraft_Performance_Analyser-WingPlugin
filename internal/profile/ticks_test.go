@@ -109,7 +109,7 @@ func calls(n int) string {
 
 func TestEvalSamples(t *testing.T) {
 	w, mapping, _ := evalSamples(samples(250, 0), 60)
-	if w.State != TickStatePaused || mapping != "mojmap" || w.TPS != nil {
+	if w.State != TickStateIdle || mapping != "mojmap" || w.TPS != nil {
 		t.Errorf("all idle: %+v", w)
 	}
 	// Stacks of other threads (no filter) do not count.
@@ -301,17 +301,17 @@ func TestTicksModes(t *testing.T) {
 			t.Errorf("command while counting: %q", o)
 		}
 	}
-	// pause-when-empty-seconds: ticks without work.
+	// Idle (nobody online, or pause-when-empty-seconds): ticks without work.
 	set(100, 10, 0)
-	if w = step(); w.State != TickStatePaused || *w.TPS != 20 || math.Abs(*w.TickMs-0.1) > 1e-9 || w.Overloaded {
-		t.Errorf("paused: %+v", w)
+	if w = step(); w.State != TickStateIdle || *w.TPS != 20 || math.Abs(*w.TickMs-0.1) > 1e-9 || w.Overloaded {
+		t.Errorf("idle: %+v", w)
 	}
-	if s, _ := k.Get(context.Background(), tg); s.State != TickStatePaused {
+	if s, _ := k.Get(context.Background(), tg); s.State != TickStateIdle {
 		t.Errorf("state %s", s.State)
 	}
 	set(0, 1, 0)
-	if w = step(); w.State != TickStatePaused || w.TPS != nil || w.TickMs != nil || w.Overloaded {
-		t.Errorf("paused without ticks: %+v", w)
+	if w = step(); w.State != TickStateIdle || w.TPS != nil || w.TickMs != nil || w.Overloaded {
+		t.Errorf("idle without ticks: %+v", w)
 	}
 	// Without schedstat: TPS only, the thread is looked up again.
 	mu.Lock()

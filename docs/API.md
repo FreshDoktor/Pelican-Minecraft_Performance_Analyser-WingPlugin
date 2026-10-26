@@ -46,7 +46,7 @@ If the contract changes, this file and the examples change first, then both side
 | Header | Direction | Value |
 | --- | --- | --- |
 | `Authorization` | request | `Bearer <token>`: the **node token of Wings** (`token` in `/etc/pelican/config.yml`, i.e. `daemon_token` of the node in the panel). Compared in constant time. |
-| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.3.0 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
+| `User-Agent` | **response** | `MPA Bridge/v<version> (id:<token_id>)`, e.g. `MPA Bridge/v0.3.1 (id:Xy12Ab34Cd56Ef78)`. `<token_id>` is `token_id` of the Wings config (`daemon_token_id` in the panel). Sent on **every** response, including 401, 403, 404 and 5xx. The panel rejects a response whose id does not match the node (`wrong_node`). |
 | `Content-Type` | request | `application/json` for request bodies (`POST /profiles`). Bodies are limited to 4 KiB. |
 
 The bridge resolves the token like Wings: `WINGS_TOKEN` / `WINGS_TOKEN_ID` take precedence over the
@@ -105,7 +105,7 @@ profiles but without the tick monitor report).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `bridge_version` | string | semver, e.g. `0.3.0` |
+| `bridge_version` | string | semver, e.g. `0.3.1` |
 | `api_version` | integer | `1` |
 | `features` | string[] | see [Versioning](#versioning) |
 | `started_at` | Unix ms | start of the bridge process |
@@ -544,7 +544,7 @@ history of 10 minutes. Poll every 5 s while the console is open. Answers within 
 measuring runs in the background.
 
 Examples: [`ticks-starting.json`](examples/ticks-starting.json) (first call), [`ticks.json`](examples/ticks.json),
-[`ticks-paused.json`](examples/ticks-paused.json), [`ticks-overloaded.json`](examples/ticks-overloaded.json),
+[`ticks-idle.json`](examples/ticks-idle.json), [`ticks-overloaded.json`](examples/ticks-overloaded.json),
 [`ticks-suspended.json`](examples/ticks-suspended.json), [`ticks-unsupported.json`](examples/ticks-unsupported.json),
 [`ticks-jvm-starting.json`](examples/ticks-jvm-starting.json).
 Errors: as `/vm` plus `attach_unavailable` (except `jvm_starting`, which is the state `starting`),
@@ -587,7 +587,7 @@ window, removed right away and when the monitor ends.
 | Field | Type | Description |
 | --- | --- | --- |
 | `sampled_at` | Unix ms | |
-| `state` | enum | `starting` · `ok` · `paused` · `suspended` · `unsupported` · `error`, see below |
+| `state` | enum | `starting` · `ok` · `idle` · `suspended` · `unsupported` · `error`, see below |
 | `reason` | enum, nullable | `starting`: `first_window` (no window measured yet) or `jvm_starting` (JVM younger than 30 s, listener not running; no monitor started); `suspended`: `profile_running`; `unsupported`: `no_server_thread` or `unknown_mapping`; else `null` |
 | `method` | enum, nullable | `sampling` · `counting`: what the monitor measures right now; `null` while it doesn't (suspended, unsupported, error) |
 | `mapping` | enum, nullable | mapping of the tick loop as recognised in the samples: `mojmap` · `intermediary` · `srg` · `mcp`; `null` until known |
@@ -606,7 +606,7 @@ window, removed right away and when the monitor ends.
 | --- | --- | --- |
 | `starting` | monitor or JVM just started | nothing yet, poll again |
 | `ok` | `current` has values (or is `overloaded`) | TPS/MSPT |
-| `paused` | the Server thread did (almost) no tick work: `load_percent` < 0.5 %, as with `pause-when-empty-seconds` and nobody online. `counting` windows keep `tps` (`tickServer` still runs, `null` with 0 ticks) and `tick_time_ms` | "paused" instead of numbers |
+| `idle` | the Server thread had hardly anything to do: `load_percent` < 0.5 %, e.g. nobody online, or paused by `pause-when-empty-seconds` (the bridge can't tell which). `counting` windows keep `tps` (`tickServer` still runs; `null` with 0 ticks) and `tick_time_ms`. Called `paused` up to 0.3.0: read `paused` of older bridges as `idle` | "idle", with the numbers if there are any |
 | `suspended` | a profile of this server runs; the monitor resumes after it | a gap |
 | `unsupported` | `no_server_thread` (a proxy such as Velocity, or the server is still starting) or `unknown_mapping` (samples without a known tick or idle method: obfuscated versions, or the world is still loading). Not final, the monitor keeps looking | nothing |
 | `error` | the last window failed, see `error` | nothing / last values |
@@ -617,9 +617,9 @@ Window (`current`, `history[]`):
 | --- | --- | --- |
 | `started_at` / `ended_at` | Unix ms | the measured span |
 | `duration_ms` | number | `ended_at - started_at`, about 5000 |
-| `state` | enum | `ok` · `paused` · `suspended` · `unsupported` |
+| `state` | enum | `ok` · `idle` · `suspended` · `unsupported` |
 | `method` | enum, nullable | `sampling` · `counting`; `null` for `suspended` |
-| `tps` | number, nullable | ticks per second (2 decimals); `null` when unknown (`overloaded` or `paused` sampling, `paused` counting without ticks, `unsupported`, `suspended`) |
+| `tps` | number, nullable | ticks per second (2 decimals); `null` when unknown (`overloaded` or `idle` sampling, `idle` counting without ticks, `unsupported`, `suspended`) |
 | `tick_time_ms` | number, nullable | average duration of a tick (MSPT, 3 decimals); `null` when unknown (also `counting` without `schedstat` while the server keeps up) |
 | `load_percent` | number, nullable | how busy the Server thread was, 0–100. `sampling`: share of tick work in the samples; `counting`: busy time (see above) / duration, `null` without `schedstat` |
 | `overloaded` | bool | no idle time left in the tick loop (`sampling`: load ≥ 95 %; `counting`: `tps` < 19.5) |
@@ -706,7 +706,7 @@ Everything else comes from `testdata/` (Java 25.0.4.1 Temurin, Serial GC, `-Xms1
 | `profiles-empty.json` | `GET /profiles`, no profiles |
 | `ticks-starting.json` | `GET /ticks`, first call: monitor started, no window yet |
 | `ticks.json` | `GET /ticks`, a sampling window, then two counting windows (4–5 ms per tick) |
-| `ticks-paused.json` | `GET /ticks`, the Server thread only waits (`pause-when-empty-seconds`): sampling, then counting |
+| `ticks-idle.json` | `GET /ticks`, the Server thread only waits (nobody online): sampling, then counting |
 | `ticks-overloaded.json` | `GET /ticks`, no idle time left: the sampling window has no TPS, the counting windows about 14 |
 | `ticks-suspended.json` | `GET /ticks` while a profile runs |
 | `ticks-unsupported.json` | `GET /ticks` on a proxy (no Server thread) |

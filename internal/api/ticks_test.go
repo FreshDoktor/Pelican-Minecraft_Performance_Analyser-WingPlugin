@@ -99,7 +99,7 @@ func tickExamples(t *testing.T) map[string]any {
 	tickWindow(t, s, path, 3)
 	ex["ticks"] = getAt(t, s, path, 200)
 
-	// pause-when-empty-seconds: the Server thread only waits; tickServer is
+	// Idle (nobody online, or pause-when-empty-seconds): the Server thread only waits; tickServer is
 	// still called, but does nothing.
 	s = testServer(t)
 	f, c = fakes(s)
@@ -110,7 +110,7 @@ func tickExamples(t *testing.T) map[string]any {
 	exTicks(f, 0, 0, 100)
 	exBusy(f, 4, 1)
 	tickWindow(t, s, path, 2)
-	ex["ticks-paused"] = getAt(t, s, path, 200)
+	ex["ticks-idle"] = getAt(t, s, path, 200)
 
 	// Overloaded: no idle time left in the first window, then about 70 ms per tick.
 	s = testServer(t)
@@ -181,9 +181,9 @@ func TestTicksExamples(t *testing.T) {
 		*h[1].Method == "counting" && *h[1].Ticks == 100 && *h[1].TPS == 20.02 && *h[1].TickTimeMs == 4.46 && *h[1].LoadPercent == 8.93 &&
 		*h[2].Ticks == 100 && *h[2].TPS == 20 && *h[2].TickTimeMs == 4.82 && *h[2].LoadPercent == 9.64 && h[2].Samples == nil &&
 		h[2].DurationMs == 5000 && !h[2].Overloaded)
-	r = decodeTicks(t, ex["ticks-paused"].(json.RawMessage))
+	r = decodeTicks(t, ex["ticks-idle"].(json.RawMessage))
 	h = r.History
-	check("ticks-paused", r.State == "paused" && len(h) == 2 && h[0].TPS == nil && h[0].TickTimeMs == nil && *h[0].LoadPercent == 0 &&
+	check("ticks-idle", r.State == "idle" && len(h) == 2 && h[0].TPS == nil && h[0].TickTimeMs == nil && *h[0].LoadPercent == 0 &&
 		*h[1].Method == "counting" && *h[1].TPS == 20.02 && *h[1].TickTimeMs == 0.05 && *h[1].LoadPercent == 0.1 && !h[1].Overloaded)
 	r = decodeTicks(t, ex["ticks-overloaded"].(json.RawMessage))
 	h = r.History
