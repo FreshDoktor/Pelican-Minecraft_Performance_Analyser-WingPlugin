@@ -77,6 +77,25 @@ func tickWindow(t *testing.T, s *Server, path string, n int) TicksResponse {
 	return TicksResponse{}
 }
 
+// waitCounting waits until the monitor counts. After the first window it
+// records the window before it starts counting and reads the times of the
+// Server thread, so busy time the test adds earlier would be lost.
+func waitCounting(t *testing.T, s *Server, path string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		var r TicksResponse
+		if err := json.Unmarshal(getAt(t, s, path, 200), &r); err != nil {
+			t.Fatal(err)
+		}
+		if r.Method != nil && *r.Method == profile.TickMethodCounting {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("tick monitor: does not count")
+}
+
 // tickExamples runs the tick monitor through the real handlers with fake
 // attach (wall samples and call counts), fake clock and fake ticker.
 func tickExamples(t *testing.T) map[string]any {
@@ -91,6 +110,7 @@ func tickExamples(t *testing.T) map[string]any {
 	exTicks(f, 229, 21, 0)
 	ex["ticks-starting"] = getAt(t, s, path, 200)
 	tickWindow(t, s, path, 1)
+	waitCounting(t, s, path)
 	exTicks(f, 0, 0, 100)
 	exBusy(f, 430, 16)
 	tickWindow(t, s, path, 2)
@@ -107,6 +127,7 @@ func tickExamples(t *testing.T) map[string]any {
 	exTicks(f, 250, 0, 0)
 	getAt(t, s, path, 200)
 	tickWindow(t, s, path, 1)
+	waitCounting(t, s, path)
 	exTicks(f, 0, 0, 100)
 	exBusy(f, 4, 1)
 	tickWindow(t, s, path, 2)
@@ -119,6 +140,7 @@ func tickExamples(t *testing.T) map[string]any {
 	exTicks(f, 0, 250, 0)
 	getAt(t, s, path, 200)
 	tickWindow(t, s, path, 1)
+	waitCounting(t, s, path)
 	exTicks(f, 0, 0, 71)
 	exBusy(f, 4710, 262)
 	tickWindow(t, s, path, 2)
