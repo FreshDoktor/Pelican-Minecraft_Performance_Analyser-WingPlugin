@@ -158,7 +158,7 @@ if [ -f "$CONFIG_PATH" ]; then
 	[ -z "$allowed_ips$port" ] || echo "warning: --allowed-ips and --port only apply to a new config, edit $CONFIG_PATH instead" >&2
 	chmod 0600 "$CONFIG_PATH"
 	if [ -z "$(config_token)" ]; then
-		# Bridges before 1.1.0 used the Wings token; drop an empty token line, then add a new one.
+		# Bridges before 1.2.0 used the Wings token; drop an empty token line, then add a new one.
 		info "Adding a token to $CONFIG_PATH"
 		sed -i '/^token:/d' "$CONFIG_PATH"
 		{
