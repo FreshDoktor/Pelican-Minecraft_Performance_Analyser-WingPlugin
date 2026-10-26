@@ -8,13 +8,16 @@
 # own folder (an unpacked release), else downloads it from the GitHub release and
 # checks its SHA-256. An existing /etc/pelican/mpa-bridge.yml is kept, so running
 # the script again updates the bridge. A config without a token gets one; the
-# script prints the token for the panel at the end.
+# script prints the token and the certificate pin for the panel at the end.
 set -euo pipefail
 
 REPO="FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin"
 ASSET="mpa-bridge-linux-amd64"
 BIN_PATH="/usr/local/bin/mpa-bridge"
 CONFIG_PATH="/etc/pelican/mpa-bridge.yml"
+# The self-signed certificate the bridge creates (tls.self_signed_cert/key in the config).
+CERT_PATH="/etc/pelican/mpa-bridge.crt"
+KEY_PATH="/etc/pelican/mpa-bridge.key"
 WINGS_CONFIG="/etc/pelican/config.yml"
 UNIT_PATH="/etc/systemd/system/mpa-bridge.service"
 
@@ -94,9 +97,9 @@ if [ "$uninstall" -eq 1 ]; then
 	rm -f "$UNIT_PATH" "$BIN_PATH"
 	systemctl daemon-reload
 	if [ "$purge" -eq 1 ]; then
-		rm -f "$CONFIG_PATH"
+		rm -f "$CONFIG_PATH" "$CERT_PATH" "$KEY_PATH"
 	elif [ -f "$CONFIG_PATH" ]; then
-		echo "Kept $CONFIG_PATH (remove it with --purge)."
+		echo "Kept $CONFIG_PATH and the bridge's certificate (remove them with --purge)."
 	fi
 	echo "Done. Profiler files the bridge left in the containers' /tmp are removed with the next server restart."
 	exit 0
@@ -201,6 +204,13 @@ else
 		echo "max_concurrent_profiles: 2"
 		echo "max_profile_seconds: 120"
 		echo "max_tick_monitors: 10"
+		echo "# HTTPS: with the certificate of Wings if Wings has api.ssl.enabled, else with a"
+		echo "# self-signed one the bridge creates ($CERT_PATH). The panel pins it, see"
+		echo "# mpa-bridge -fingerprint. An own certificate, or plain HTTP behind a proxy on this node:"
+		echo "#tls:"
+		echo "#  cert: /etc/letsencrypt/live/node.example.com/fullchain.pem"
+		echo "#  key: /etc/letsencrypt/live/node.example.com/privkey.pem"
+		echo "#  disable: true"
 	} >"$CONFIG_PATH"
 	chmod 0600 "$CONFIG_PATH"
 fi
@@ -259,26 +269,55 @@ if [ "$ok" -ne 1 ]; then
 	die "the bridge did not start, see the log above (journalctl -u mpa-bridge)"
 fi
 
-scheme="http"
-if sed -n '/^api:/,/^[^[:space:]]/p' "$WINGS_CONFIG" | sed -n '/ssl:/,/enabled:/p' | grep -q 'enabled:[[:space:]]*true'; then
-	scheme="https"
-fi
+# 5. Summary. HTTPS unless tls.disable, then -fingerprint exits with status 3.
+scheme="https"
+pin_status=0
+pin="$("$BIN_PATH" -fingerprint -config "$CONFIG_PATH" 2>"$workdir/fingerprint.err")" || pin_status=$?
+case "$pin_status" in
+0) ;;
+3) scheme="http" ;;
+*)
+	cat "$workdir/fingerprint.err" >&2
+	pin="(failed, see above; run mpa-bridge -fingerprint once it is fixed)"
+	;;
+esac
 token="$(config_token)"
 case "$token" in
 '' | *'$'* | file://*) token="(as set by token in $CONFIG_PATH)" ;;
 esac
+if [ "$scheme" = "https" ]; then
+	transport="Certificate pin (not secret, the panel checks the bridge's certificate with it):
+
+    $pin
+"
+	example="https://<node FQDN>:$listen_port or https://10.0.0.5:$listen_port"
+	paste="paste the bridge token and the certificate pin above"
+	renewal="
+  - The pin belongs to the key of the certificate. If it gets a new key (an own or the Wings
+    certificate renewed by certbot without --reuse-key), run mpa-bridge -fingerprint again and
+    enter the new pin in the panel, or leave the pin empty for a certificate of a public CA."
+else
+	transport="TLS is off (tls.disable in $CONFIG_PATH): the token crosses the network in cleartext.
+The panel accepts http:// only for loopback and private addresses (10.x, 172.16-31.x, 192.168.x,
+100.64-127.x, fc00::/7), never for a host name.
+"
+	example="http://10.0.0.5:$listen_port"
+	paste="paste the bridge token above"
+	renewal=""
+fi
 cat <<EOF
 
-$new_version is running on port $listen_port ($scheme, like Wings).
+$new_version is running on port $listen_port ($scheme).
 
 Bridge token (keep it secret, it is not the Wings token):
 
     $token
 
+$transport
 Next steps:
   - Let the panel reach this port, and only the panel (firewall).
   - In the panel: Admin -> Nodes -> this node -> tab "MPA Bridge". Enter the address the panel
-    reaches this node under, e.g. $scheme://<node FQDN>:$listen_port or $scheme://10.0.0.5:$listen_port,
-    paste the bridge token above, then "Test connection" and save.
+    reaches this node under, e.g. $example,
+    $paste, then "Test connection" and save.$renewal
   - Log: journalctl -u mpa-bridge -f
 EOF
