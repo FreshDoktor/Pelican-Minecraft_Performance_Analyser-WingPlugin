@@ -116,6 +116,63 @@ allowed_ips_yaml() {
 	done
 }
 
+# strip_yaml: a scalar without quotes and trailing comment.
+strip_yaml() {
+	sed 's/[[:space:]]\{1,\}#.*$//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/'"; s/^'\(.*\)'\$/\1/"
+}
+
+# node_ip: the address of this node the panel most likely reaches it under. Wings'
+# api.host if that is one address, else the source address of the route to the panel
+# (remote in the Wings config), else the first address of hostname -I. Empty if none.
+node_ip() {
+	local ip remote host panel
+	ip="$(awk '
+		/^api:/ { api = 1; next }
+		api && /^[^[:space:]]/ { exit }
+		api && /^  host:/ { sub(/^  host:[[:space:]]*/, ""); print; exit }
+	' "$WINGS_CONFIG" | strip_yaml)"
+	ip="${ip#[}"
+	ip="${ip%]}"
+	case "$ip" in
+	'' | 0.0.0.0 | :: | *[!0-9a-fA-F.:]*) ip="" ;;
+	esac
+	if [ -z "$ip" ] && command -v ip >/dev/null; then
+		remote="$(sed -n 's/^remote:[[:space:]]*//p' "$WINGS_CONFIG" | head -n1 | strip_yaml)"
+		host="${remote#*://}"
+		host="${host%%/*}"
+		host="${host%:*}"
+		panel="$(getent ahostsv4 "$host" 2>/dev/null | awk 'NR == 1 { print $1 }')"
+		[ -z "$panel" ] || ip="$(ip -4 route get "$panel" 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n1)"
+	fi
+	if [ -z "$ip" ]; then
+		ip="$(hostname -I 2>/dev/null | awk '{ print $1 }')"
+	fi
+	case "$ip" in
+	*:*) echo "[$ip]" ;;
+	*) echo "$ip" ;;
+	esac
+}
+
+# cert_name: the first DNS name of the certificate the bridge serves on $1, else hostname -f.
+cert_name() {
+	local name=""
+	if command -v openssl >/dev/null; then
+		name="$(openssl s_client -connect "127.0.0.1:$1" </dev/null 2>/dev/null |
+			openssl x509 -noout -ext subjectAltName 2>/dev/null | grep -o 'DNS:[^,[:space:]]*' | head -n1)"
+		name="${name#DNS:}"
+	fi
+	case "$name" in
+	'' | '*'*) name="$(hostname -f 2>/dev/null)" ;;
+	esac
+	echo "${name:-<node FQDN>}"
+}
+
+# is_private_ip: whether $1 is an address the panel sends plain http to (see BridgeAddress).
+is_private_ip() {
+	[[ "$1" =~ ^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.) ]] ||
+		[[ "$1" =~ ^\[(::1|[fF][cCdD]|[fF][eE][89aAbB]) ]]
+}
+
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--allowed-ips) allowed_ips="${2:?--allowed-ips needs a value}"; shift 2 ;;
@@ -390,7 +447,20 @@ if [ "$scheme" = "https" ]; then
 
     $pin
 "
-	example="https://<node FQDN>:$listen_port or https://10.0.0.5:$listen_port"
+	# The bridge logs which certificate it serves (cert=own, wings or self-signed).
+	cert_source="$(journalctl -u mpa-bridge.service -n 50 -o cat --no-pager 2>/dev/null |
+		sed -n 's/.*msg=listening.* cert=\([a-z-]*\).*/\1/p' | tail -n1)"
+	if [ "$cert_source" = "own" ] || [ "$cert_source" = "wings" ]; then
+		# Most likely from a public CA: the panel checks the name, so the address must carry it.
+		address="https://$(cert_name "$listen_port"):$listen_port"
+		address_note="the name in the certificate. With a certificate of a public CA the pin
+    may stay empty, the panel then checks the certificate like a browser"
+	else
+		ip="$(node_ip)"
+		address="https://${ip:-<node IP>}:$listen_port"
+		address_note="detected from the Wings config; the pin checks the certificate, so an IP
+    or any name of this node works"
+	fi
 	paste="paste the bridge token and the certificate pin above"
 	renewal="
   - The pin belongs to the key of the certificate. If it gets a new key (an own or the Wings
@@ -401,7 +471,13 @@ else
 The panel accepts http:// only for loopback and private addresses (10.x, 172.16-31.x, 192.168.x,
 100.64-127.x, fc00::/7), never for a host name.
 "
-	example="http://10.0.0.5:$listen_port"
+	ip="$(node_ip)"
+	address="http://${ip:-<node IP>}:$listen_port"
+	address_note="detected from the Wings config"
+	if [ -n "$ip" ] && ! is_private_ip "$ip"; then
+		address_note="$address_note. It is no private address, the panel refuses
+    it over http: enable TLS or enter a private address of this node"
+	fi
 	paste="paste the bridge token above"
 	renewal=""
 fi
@@ -416,8 +492,11 @@ Bridge token (keep it secret, it is not the Wings token):
 $transport
 Next steps:
   - Let the panel reach this port, and only the panel (firewall).
-  - In the panel: Admin -> Nodes -> this node -> tab "MPA Bridge". Enter the address the panel
-    reaches this node under, e.g. $example,
+  - In the panel: Admin -> Nodes -> this node -> tab "MPA Bridge". Enter the address:
+
+    $address
+
+    ($address_note; if the panel reaches this node under another address, enter that one),
     $paste, then "Test connection" and save.$renewal
   - Log: journalctl -u mpa-bridge -f
 EOF
