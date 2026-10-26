@@ -7,7 +7,8 @@
 # Run as root. Without --binary the script takes mpa-bridge-linux-amd64 from its
 # own folder (an unpacked release), else downloads it from the GitHub release and
 # checks its SHA-256. An existing /etc/pelican/mpa-bridge.yml is kept, so running
-# the script again updates the bridge. A config without a token gets one; the
+# the script again updates the bridge. A config without a token gets one, one
+# without allowed_ips (and without allow_all: true) gets the panel's IP(s); the
 # script prints the token and the certificate pin for the panel at the end.
 set -euo pipefail
 
@@ -31,7 +32,7 @@ uninstall=0
 purge=0
 
 usage() {
-	sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
 }
 
@@ -68,6 +69,51 @@ new_token() {
 config_token() {
 	sed -n 's/^token:[[:space:]]*//p' "$CONFIG_PATH" | head -n1 |
 		sed 's/[[:space:]]\{1,\}#.*$//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/'"; s/^'\(.*\)'\$/\1/"
+}
+
+# config_allows: whether the config lets the panel in, i.e. has allowed_ips
+# entries (a block or a flow list) or allow_all: true. The bridge refuses to
+# start otherwise.
+config_allows() {
+	grep -Eq '^allow_all:[[:space:]]*true[[:space:]]*(#.*)?$' "$CONFIG_PATH" && return 0
+	awk '
+		/^allowed_ips:/ {
+			rest = $0
+			sub(/^allowed_ips:[[:space:]]*/, "", rest)
+			sub(/^#.*$/, "", rest)
+			sub(/[[:space:]]+#.*$/, "", rest)
+			if (rest ~ /^\[[[:space:]]*\]$/) exit
+			if (rest != "") { found = 1; exit }
+			list = 1
+			next
+		}
+		list && /^[[:space:]]*(#.*)?$/ { next }
+		list && /^[[:space:]]*-[[:space:]]*[^[:space:]#]/ { found = 1; exit }
+		list { exit }
+		END { exit found ? 0 : 1 }
+	' "$CONFIG_PATH"
+}
+
+# ask_allowed_ips: asks for the panel's IP(s) unless --allowed-ips gave them.
+ask_allowed_ips() {
+	[ -z "$allowed_ips" ] || return 0
+	echo "The bridge only accepts connections from the panel. Which addresses does the panel"
+	echo "connect from? IPs or CIDRs, comma separated, e.g. 10.0.0.2 or 10.0.0.0/24."
+	allowed_ips="$(ask "Panel IP(s): " "")"
+	[ -n "$(echo "$allowed_ips" | tr -d '[:space:],')" ] || die "the panel's IP is required (allowed_ips)"
+}
+
+# allowed_ips_yaml: the allowed_ips key with the addresses of $allowed_ips.
+allowed_ips_yaml() {
+	local ips ip
+	echo "# Addresses allowed to connect (IPs or CIDRs), i.e. the panel. Required; instead,"
+	echo "# allow_all: true lets every address connect (only the token protects the bridge then)."
+	echo "allowed_ips:"
+	IFS=',' read -ra ips <<<"$allowed_ips"
+	for ip in "${ips[@]}"; do
+		ip="$(echo "$ip" | tr -d '[:space:]')"
+		[ -z "$ip" ] || echo "  - \"$ip\""
+	done
 }
 
 while [ $# -gt 0 ]; do
@@ -120,6 +166,21 @@ if [ -n "$port" ] && ! [[ "$port" =~ ^[0-9]+$ && "$port" -ge 1 && "$port" -le 65
 	die "--port must be a number from 1 to 65535"
 fi
 
+# The panel's IP(s), asked before anything changes: the bridge does not start
+# without allowed_ips (or allow_all: true).
+add_ips=0
+if [ ! -f "$CONFIG_PATH" ]; then
+	[ -n "$allowed_ips" ] || [ "$assume_yes" -eq 0 ] || die "--yes needs --allowed-ips for a new config"
+	ask_allowed_ips
+elif ! config_allows; then
+	add_ips=1
+	if [ -z "$allowed_ips" ] && [ "$assume_yes" -eq 1 ]; then
+		die "$CONFIG_PATH has no allowed_ips, the bridge does not start without: pass --allowed-ips with the panel's IP(s), or set allow_all: true there to let every address connect"
+	fi
+	echo "$CONFIG_PATH has no allowed_ips, the bridge does not start without."
+	ask_allowed_ips
+fi
+
 # 1. Binary
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
@@ -160,8 +221,15 @@ mv -f "$BIN_PATH.new" "$BIN_PATH"
 # 2. Config (holds the bridge token, so only root may read it)
 if [ -f "$CONFIG_PATH" ]; then
 	info "Keeping $CONFIG_PATH"
-	[ -z "$allowed_ips$port" ] || echo "warning: --allowed-ips and --port only apply to a new config, edit $CONFIG_PATH instead" >&2
+	[ -z "$port" ] || echo "warning: --port only applies to a new config, edit $CONFIG_PATH instead" >&2
+	[ -z "$allowed_ips" ] || [ "$add_ips" -eq 1 ] || echo "warning: $CONFIG_PATH has allowed_ips, --allowed-ips is ignored, edit it there instead" >&2
 	chmod 0600 "$CONFIG_PATH"
+	if [ "$add_ips" -eq 1 ]; then
+		# An empty allowed_ips (e.g. "allowed_ips: []" or a key without entries) goes first.
+		info "Adding allowed_ips to $CONFIG_PATH"
+		sed -i -e '/^allowed_ips:/d' -e '/^# Addresses allowed to connect (IPs or CIDRs), i.e. the panel. Empty = everyone.$/d' "$CONFIG_PATH"
+		allowed_ips_yaml >>"$CONFIG_PATH"
+	fi
 	if [ -z "$(config_token)" ]; then
 		# Bridges before 1.1.0 used the Wings token; drop an empty token line, then add a new one.
 		info "Adding a token to $CONFIG_PATH"
@@ -172,13 +240,6 @@ if [ -f "$CONFIG_PATH" ]; then
 		} >>"$CONFIG_PATH"
 	fi
 else
-	if [ -z "$allowed_ips" ]; then
-		[ "$assume_yes" -eq 0 ] || die "--yes needs --allowed-ips for a new config"
-		echo "The bridge only accepts connections from the panel. Which addresses does the panel"
-		echo "connect from? IPs or CIDRs, comma separated, e.g. 10.0.0.2 or 10.0.0.0/24."
-		allowed_ips="$(ask "Panel IP(s): " "")"
-		[ -n "$allowed_ips" ] || die "the panel's IP is required (allowed_ips)"
-	fi
 	if [ -z "$port" ]; then
 		if [ "$assume_yes" -eq 1 ]; then
 			port=8090
@@ -196,13 +257,7 @@ else
 		echo "token: \"$(new_token)\""
 		echo "port: $port"
 		echo "host: 0.0.0.0"
-		echo "# Addresses allowed to connect (IPs or CIDRs), i.e. the panel. Empty = everyone."
-		echo "allowed_ips:"
-		IFS=',' read -ra ips <<<"$allowed_ips"
-		for ip in "${ips[@]}"; do
-			ip="$(echo "$ip" | tr -d '[:space:]')"
-			[ -z "$ip" ] || echo "  - \"$ip\""
-		done
+		allowed_ips_yaml
 		echo "max_concurrent_profiles: 2"
 		echo "max_profile_seconds: 120"
 		echo "max_tick_monitors: 10"

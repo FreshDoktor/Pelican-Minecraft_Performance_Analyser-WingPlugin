@@ -81,6 +81,7 @@ func testServer(t *testing.T) *Server {
 	s := &Server{
 		Version:      "1.0.0",
 		Creds:        config.StaticCredentials(testTokenID, testToken),
+		AllowAll:     true,
 		Docker:       fakeDocker{uuidRunning: running, uuidStopped: stopped, uuidNoJava: noJava, uuidNoPerf: noPerf, uuidPaused: paused},
 		Proc:         fakeProc{running.PID: java, noPerf.PID: javaNoPerf},
 		Attach:       newFakeAttach(t, c),
@@ -465,7 +466,7 @@ func TestAllowedIPs(t *testing.T) {
 	s := testServer(t)
 	p, _ := config.ParsePrefix("10.0.0.0/24")
 	q, _ := config.ParsePrefix("2001:db8::1")
-	s.Allowed = []netip.Prefix{p, q}
+	s.Allowed, s.AllowAll = []netip.Prefix{p, q}, false
 	for addr, want := range map[string]int{
 		"10.0.0.2:1":          200,
 		"[::ffff:10.0.0.9]:1": 200,
@@ -489,6 +490,11 @@ func TestAllowedIPs(t *testing.T) {
 		if want == 403 && !equalJSON(t, readExample(t, "error-ip-not-allowed"), w.Body.Bytes()) {
 			t.Errorf("%s: body %s", addr, w.Body)
 		}
+	}
+	// Neither allowed_ips nor allow_all (config refuses that, the server too): nobody.
+	s.Allowed = nil
+	if w := do(t, s, http.MethodGet, "/api/v1/status", testToken); w.Code != 403 {
+		t.Errorf("without allowed_ips: %d", w.Code)
 	}
 }
 

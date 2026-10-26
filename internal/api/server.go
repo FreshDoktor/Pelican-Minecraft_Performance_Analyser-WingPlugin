@@ -62,6 +62,7 @@ type Server struct {
 	Version    string
 	Creds      Credentials
 	Allowed    []netip.Prefix
+	AllowAll   bool // every address, instead of Allowed (allow_all)
 	Docker     container.Inspector
 	Proc       ProcessFinder
 	Attach     Attacher
@@ -131,7 +132,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ipAllowed(remote string) bool {
-	if len(s.Allowed) == 0 {
+	if s.AllowAll {
 		return true
 	}
 	host, _, err := net.SplitHostPort(remote)

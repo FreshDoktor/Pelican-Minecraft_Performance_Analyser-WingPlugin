@@ -110,6 +110,15 @@ Order of checks: client IP (`allowed_ips` in `mpa-bridge.yml`, `ip_not_allowed`)
 (`unauthorized`) → route (`not_found`, `method_not_allowed`) → parameters (`invalid_request`) → server state.
 The client IP is the TCP peer; `X-Forwarded-For` is ignored.
 
+| Key in `mpa-bridge.yml` | Default | Meaning |
+| --- | --- | --- |
+| `allowed_ips` | none, **required** | IPs or CIDRs allowed to connect (the panel), e.g. `[10.0.0.2, 10.1.0.0/16]`; an IPv4-mapped IPv6 peer counts as IPv4 |
+| `allow_all` | `false` | `true` lets every address connect instead; only the token protects the bridge then, and every address learns version and `token_id` |
+
+Without `allowed_ips` entries and without `allow_all: true` the bridge refuses to start, as with both
+set. With `allow_all` it logs a warning at every start. `install.sh` asks for the panel's IP(s) for a new
+config and when updating one without either (with `--yes` it needs `--allowed-ips`). Changes need a restart.
+
 The panel calls the bridge server-side only. The bridge sends no CORS headers.
 
 ## Versioning

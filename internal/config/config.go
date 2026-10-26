@@ -45,10 +45,12 @@ type Bridge struct {
 	MaxProfileSeconds     int      `yaml:"max_profile_seconds"`
 	MaxTickMonitors       int      `yaml:"max_tick_monitors"`
 	AllowedIPs            []string `yaml:"allowed_ips"`
-	WingsConfig           string   `yaml:"wings_config"`
-	DockerSocket          string   `yaml:"docker_socket"`
-	ProcRoot              string   `yaml:"proc_root"`
-	TLS                   TLS      `yaml:"tls"`
+	// AllowAll lets every address connect, instead of AllowedIPs (required otherwise).
+	AllowAll     bool   `yaml:"allow_all"`
+	WingsConfig  string `yaml:"wings_config"`
+	DockerSocket string `yaml:"docker_socket"`
+	ProcRoot     string `yaml:"proc_root"`
+	TLS          TLS    `yaml:"tls"`
 }
 
 // TLS is the tls section of mpa-bridge.yml. The bridge serves HTTPS unless
@@ -88,7 +90,7 @@ type Config struct {
 	Wings
 	// TmpfsSizeBytes is docker.tmpfs_size (MB, default 100) in bytes.
 	TmpfsSizeBytes int64
-	// Allowed is the parsed allowed_ips; empty means every address.
+	// Allowed is the parsed allowed_ips; empty only with allow_all.
 	Allowed []netip.Prefix
 }
 
@@ -200,6 +202,15 @@ func (c *Config) validate() error {
 			return fmt.Errorf("allowed_ips: %w", err)
 		}
 		c.Allowed = append(c.Allowed, p)
+	}
+	// Without allowed_ips every address on the internet could try tokens and
+	// learn the version and token_id, so open access must be asked for.
+	switch {
+	case c.AllowAll && len(c.Allowed) > 0:
+		return errors.New("allow_all and allowed_ips exclude each other: remove allow_all to only let allowed_ips connect")
+	case !c.AllowAll && len(c.Allowed) == 0:
+		return errors.New("allowed_ips is empty: set it to the IP(s) the panel connects from (IPs or CIDRs), " +
+			"or set allow_all: true to let every address connect (only the token protects the bridge then)")
 	}
 	return nil
 }

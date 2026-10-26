@@ -59,8 +59,9 @@ func run(cfgPath string, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if len(cfg.Allowed) == 0 {
-		log.Warn("allowed_ips is empty: every address may connect (the token is still required)")
+	if cfg.AllowAll {
+		log.Warn("allow_all is set: EVERY address may connect and learns the version and token_id, only the token protects the bridge; " +
+			"set allowed_ips to the panel's IP(s) instead")
 	}
 	cr, source, err := certificate(cfg, log)
 	if err != nil {
@@ -77,6 +78,7 @@ func run(cfgPath string, log *slog.Logger) error {
 		Version:    Version,
 		Creds:      config.NewCredentials(cfgPath, cfg),
 		Allowed:    cfg.Allowed,
+		AllowAll:   cfg.AllowAll,
 		Docker:     docker,
 		Proc:       proc,
 		Attach:     attacher,
