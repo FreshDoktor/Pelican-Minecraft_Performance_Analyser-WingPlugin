@@ -38,7 +38,7 @@ func TestRealJVMTicks(t *testing.T) {
 	}
 	started, _ := d.Long("sun.rt.createVmBeginTime")
 	client := attach.New(32 << 20)
-	at := attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}
+	at := attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp, StartTime: j.StartTime}
 	ctx := context.Background()
 	if err := client.Start(ctx, at); err != nil {
 		t.Fatal(err)

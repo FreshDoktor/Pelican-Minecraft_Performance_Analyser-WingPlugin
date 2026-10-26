@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
 
@@ -51,7 +52,7 @@ func (s *Server) ticks(w http.ResponseWriter, r *http.Request, uuid string) {
 			e = newError(CodeTooManyTickMonitors, "", map[string]any{"limit": s.Limits.MaxTickMonitors})
 		case errors.As(err, &te):
 			e = newError(CodeInsufficientTmpSpace, "", map[string]any{"free_bytes": te.Free, "required_bytes": te.Required})
-		case errors.As(err, &se):
+		case errors.As(err, &se) && !errors.Is(err, ctmp.ErrGone):
 			s.Log.Warn("tick monitor start failed", "uuid", uuid, "err", err)
 			e = newError(CodeInternal, "", nil)
 		default:

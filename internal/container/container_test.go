@@ -58,6 +58,10 @@ func TestFindJava(t *testing.T) {
 	if j.Tmp.Root != filepath.Join(root, "1002", "root") || j.AttachSocket().Name != ".java_pid26" || j.AttachSocket().Dir != j.Tmp {
 		t.Errorf("tmp %+v, socket %+v", j.Tmp, j.AttachSocket())
 	}
+	// Bound to the process by its start time (stat field 22), also the hsperfdata file.
+	if j.StartTime != 100 || j.Tmp.Proc != filepath.Join(root, "1002") || j.Tmp.StartTime != 100 || j.Hsperf.Dir.StartTime != 100 {
+		t.Errorf("start time %d, tmp %+v, hsperf %+v", j.StartTime, j.Tmp, j.Hsperf.Dir)
+	}
 	if f, err := j.Hsperf.Dir.Open(j.Hsperf.Name); err != nil {
 		t.Errorf("hsperfdata: %v", err)
 	} else {

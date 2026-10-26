@@ -75,7 +75,7 @@ func (f *fakeJVM) serve() {
 
 func testClient(max int64) *Client {
 	c := New(max)
-	c.Signal = func(int) error { return errors.New("no signal expected") }
+	c.Signal = func(int, uint64) error { return errors.New("no signal expected") }
 	// Windows reports AF_UNIX socket files differently; existence is enough here.
 	c.SocketExists = func(f ctmp.File) bool { _, err := f.Dir.Mode(f.Name); return err == nil }
 	return c
@@ -138,7 +138,7 @@ func TestStart(t *testing.T) {
 	c := testClient(1 << 20)
 	var signalled []int
 	var triggerSeen bool
-	c.Signal = func(pid int) error {
+	c.Signal = func(pid int, _ uint64) error {
 		signalled = append(signalled, pid)
 		// Like HotSpot: the trigger file must exist when the signal arrives.
 		_, err := os.Stat(filepath.Join(dir, ".attach_pid26"))
@@ -172,7 +172,7 @@ func TestStartTimeout(t *testing.T) {
 	tg := Target{HostPID: 4711, NSPID: 26, Tmp: ctmp.Dir{Root: dir}}
 	c := testClient(1 << 20)
 	c.StartTimeout = 100 * time.Millisecond
-	c.Signal = func(int) error { return nil } // the JVM never reacts
+	c.Signal = func(int, uint64) error { return nil } // the JVM never reacts
 	if err := c.Start(context.Background(), tg); !errors.Is(err, ErrTimeout) {
 		t.Errorf("%v", err)
 	}
@@ -189,7 +189,7 @@ func TestStartRejectsPlantedTrigger(t *testing.T) {
 	}
 	c := testClient(1 << 20)
 	signalled := false
-	c.Signal = func(int) error { signalled = true; return nil }
+	c.Signal = func(int, uint64) error { signalled = true; return nil }
 	if err := c.Start(context.Background(), tg); err == nil || signalled {
 		t.Errorf("planted directory must stop the start: %v, signalled %v", err, signalled)
 	}

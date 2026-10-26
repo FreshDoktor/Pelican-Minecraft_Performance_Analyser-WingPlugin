@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -353,6 +354,8 @@ func TestAttachErrors(t *testing.T) {
 		{attach.ErrTooLarge, 502, CodeOutputTooLarge},
 		{&attach.CommandError{Code: -1, Message: "java.lang.IllegalArgumentException: x"}, 502, CodeAttachFailed},
 		{attach.ErrProtocol, 502, CodeAttachFailed},
+		// The JVM ended and its PID went to another process (start time differs).
+		{&fs.PathError{Op: "stat", Path: "/proc/4242", Err: ctmp.ErrGone}, 409, CodeNoJavaProcess},
 	}
 	for _, c := range cases {
 		s := testServer(t)

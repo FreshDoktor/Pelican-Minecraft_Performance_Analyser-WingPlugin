@@ -2,6 +2,7 @@ package ctmp
 
 import (
 	"context"
+	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -21,9 +22,9 @@ func (d Dir) open() (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	fd, err := openat(unix.AT_FDCWD, d.Root, unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	fd, err := d.openRoot()
 	if err != nil {
-		return -1, &fs.PathError{Op: "open", Path: d.Root, Err: err}
+		return -1, err
 	}
 	walked := d.Root
 	for _, n := range names {
@@ -36,6 +37,65 @@ func (d Dir) open() (int, error) {
 		fd = next
 	}
 	return fd, nil
+}
+
+// openRoot opens Root. A bound Dir opens Proc first and goes on below that
+// descriptor only: it stays with the process instance, so once the start
+// time matched on it, "root" is the root of that very process, or of none
+// after it ended (ESRCH, ENOENT), never of a process that got its PID.
+func (d Dir) openRoot() (int, error) {
+	if d.Proc == "" {
+		fd, err := openat(unix.AT_FDCWD, d.Root, unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+		if err != nil {
+			return -1, &fs.PathError{Op: "open", Path: d.Root, Err: err}
+		}
+		return fd, nil
+	}
+	pfd, err := openat(unix.AT_FDCWD, d.Proc, unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return -1, &fs.PathError{Op: "open", Path: d.Proc, Err: gone(err)}
+	}
+	defer unix.Close(pfd)
+	if err := checkStart(pfd, d.StartTime); err != nil {
+		return -1, &fs.PathError{Op: "stat", Path: d.Proc, Err: err}
+	}
+	// No O_NOFOLLOW: following this magic link into the container is the point.
+	fd, err := openat(pfd, "root", unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return -1, &fs.PathError{Op: "openat", Path: d.Root, Err: gone(err)}
+	}
+	return fd, nil
+}
+
+// checkStart compares the start time in the stat of the /proc/<pid>
+// descriptor pfd with start.
+func checkStart(pfd int, start uint64) error {
+	fd, err := openat(pfd, "stat", unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return gone(err)
+	}
+	f := os.NewFile(uintptr(fd), "stat")
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, 4096))
+	if err != nil {
+		return gone(err)
+	}
+	st, err := ParseStartTime(b)
+	if err != nil {
+		return err
+	}
+	if st != start {
+		return ErrGone
+	}
+	return nil
+}
+
+// gone turns the errors of /proc/<pid> of an ended process into ErrGone.
+func gone(err error) error {
+	if err == unix.ESRCH || err == unix.ENOENT {
+		return ErrGone
+	}
+	return err
 }
 
 // at runs fn with the descriptor of d after checking name.

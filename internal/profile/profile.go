@@ -111,6 +111,8 @@ type Error struct {
 func ErrorFor(err error) *Error {
 	var ce *attach.CommandError
 	switch {
+	case errors.Is(err, ctmp.ErrGone):
+		return &Error{Code: CodeNoJavaProcess, Message: "The Java process ended."}
 	case errors.Is(err, attach.ErrTimeout):
 		return &Error{Code: CodeAttachTimeout, Message: "The JVM did not answer in time."}
 	case errors.Is(err, attach.ErrTooLarge):

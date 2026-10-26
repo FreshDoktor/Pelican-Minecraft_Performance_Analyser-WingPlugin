@@ -8,12 +8,21 @@
 // operation, every component below it is opened with O_NOFOLLOW relative to
 // the one before, and the operation works on the last descriptor; no path
 // below the root is ever handed to the kernel as a whole.
+//
+// The bridge looks up the JVM's PID once per request; the JVM can end in
+// between and its PID go to another process, e.g. one of the host, whose
+// root is the host's. A Dir bound to the process (Proc, StartTime) reaches
+// the root through a descriptor of /proc/<pid>: the start time is checked on
+// it, and once that process has ended nothing below the descriptor resolves
+// any more, also not for a new process with the same PID.
 package ctmp
 
 import (
+	"bytes"
 	"errors"
 	"io/fs"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -22,23 +31,57 @@ var (
 	ErrBadName    = errors.New("ctmp: not a plain name")
 	ErrNotRegular = errors.New("ctmp: not a regular file")
 	ErrNotSocket  = errors.New("ctmp: not a socket")
+	// ErrGone: the process a Dir is bound to has ended; its PID may belong
+	// to another process by now.
+	ErrGone = errors.New("ctmp: the process has ended")
 )
 
 // Dir is a directory inside a container.
 type Dir struct {
 	Root string // the container's root on the host: /proc/<host-pid>/root (a plain directory in tests)
 	Path string // below Root: plain names separated by "/"; "" is Root itself
+	// Proc binds d to one process: its /proc/<host-pid> directory, of which
+	// Root is "root", and its start time (ParseStartTime). "": Root is
+	// opened by its path.
+	Proc      string
+	StartTime uint64
 }
 
 // Tmp is the /tmp of the container whose root is root.
 func Tmp(root string) Dir { return Dir{Root: root, Path: "tmp"} }
 
+// ProcTmp is the /tmp of the container of the process whose /proc directory
+// is proc and that started at start; the Dir is bound to that process.
+func ProcTmp(proc string, start uint64) Dir {
+	return Dir{Root: filepath.Join(proc, "root"), Path: "tmp", Proc: proc, StartTime: start}
+}
+
 // Sub is the subdirectory name of d.
 func (d Dir) Sub(name string) Dir {
 	if d.Path == "" {
-		return Dir{Root: d.Root, Path: name}
+		d.Path = name
+	} else {
+		d.Path += "/" + name
 	}
-	return Dir{Root: d.Root, Path: d.Path + "/" + name}
+	return d
+}
+
+var errBadStat = errors.New("ctmp: malformed stat")
+
+// ParseStartTime returns the start time of a process from its
+// /proc/<pid>/stat: field 22, clock ticks after boot. PID and start time
+// together name one process, a PID alone is reused. The comm field (2) may
+// contain spaces and parens, so the fields are counted after its last ')'.
+func ParseStartTime(stat []byte) (uint64, error) {
+	end := bytes.LastIndexByte(stat, ')')
+	if end < 0 {
+		return 0, errBadStat
+	}
+	f := strings.Fields(string(stat[end+1:])) // from field 3
+	if len(f) < 20 {
+		return 0, errBadStat
+	}
+	return strconv.ParseUint(f[19], 10, 64)
 }
 
 // String is the host path of d, for messages only: the kernel would follow

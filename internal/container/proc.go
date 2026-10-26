@@ -22,7 +22,10 @@ type JavaProcess struct {
 	NSPID   int       // PID inside the container (last value of NSpid)
 	User    string    // from /tmp/hsperfdata_<user>; empty if no hsperfdata file
 	Hsperf  ctmp.File // the hsperfdata file, zero if none
-	Tmp     ctmp.Dir  // the container's /tmp
+	Tmp     ctmp.Dir  // the container's /tmp, bound to the process (StartTime)
+	// StartTime of HostPID (stat field 22) tells the JVM from a process that
+	// got its PID after it ended.
+	StartTime uint64
 }
 
 // AttachSocket is the attach socket (/tmp/.java_pid<ns-pid>).
@@ -238,7 +241,15 @@ func (p Proc) isJava(pid int) bool {
 
 func (p Proc) javaProcess(pid int) (JavaProcess, error) {
 	j := JavaProcess{HostPID: pid, NSPID: pid}
-	f, err := os.Open(filepath.Join(p.Root, strconv.Itoa(pid), "status"))
+	dir := filepath.Join(p.Root, strconv.Itoa(pid))
+	b, err := os.ReadFile(filepath.Join(dir, "stat"))
+	if err != nil {
+		return j, err
+	}
+	if j.StartTime, err = ctmp.ParseStartTime(b); err != nil {
+		return j, err
+	}
+	f, err := os.Open(filepath.Join(dir, "status"))
 	if err != nil {
 		return j, err
 	}
@@ -253,7 +264,7 @@ func (p Proc) javaProcess(pid int) (JavaProcess, error) {
 			}
 		}
 	}
-	j.Tmp = ctmp.Tmp(filepath.Join(p.Root, strconv.Itoa(pid), "root"))
+	j.Tmp = ctmp.ProcTmp(dir, j.StartTime)
 	// The user inside the container depends on the Wings config (and rootless
 	// mode), so search hsperfdata_*/<ns-pid> instead of hard-coding it. The
 	// container controls these paths: ctmp follows no symlink, also not when

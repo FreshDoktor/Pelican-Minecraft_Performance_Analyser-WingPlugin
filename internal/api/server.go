@@ -442,7 +442,7 @@ func (s *Server) jcmd(ctx context.Context, t *target, command string, timeout ti
 
 // ensureAttach checks the safety rules and starts the listener if needed.
 func (s *Server) ensureAttach(ctx context.Context, t *target, what string) (attach.Target, *apiError) {
-	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, Tmp: t.java.Tmp}
+	target := attach.Target{HostPID: t.java.HostPID, NSPID: t.java.NSPID, Tmp: t.java.Tmp, StartTime: t.java.StartTime}
 	if s.Attach == nil {
 		return target, newError(CodeNotImplemented, "", nil)
 	}
@@ -465,6 +465,9 @@ func (s *Server) attachError(command string, err error) *apiError {
 	s.Log.Warn("attach failed", "command", command, "err", err)
 	var ce *attach.CommandError
 	switch {
+	case errors.Is(err, ctmp.ErrGone):
+		// The JVM ended since it was found, its PID may be another process's.
+		return newError(CodeNoJavaProcess, "", nil)
 	case errors.Is(err, attach.ErrTimeout):
 		return newError(CodeAttachTimeout, "", nil)
 	case errors.Is(err, attach.ErrTooLarge):

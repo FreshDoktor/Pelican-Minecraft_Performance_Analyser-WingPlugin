@@ -44,7 +44,7 @@ func TestRealJVM(t *testing.T) {
 	t.Logf("hsperf: %d entries, java %s, gc %s", d.Len(), v, d.GCType())
 
 	c := New(32 << 20)
-	tg := Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}
+	tg := Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp, StartTime: j.StartTime}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	wasRunning := SocketExists(tg.Socket())

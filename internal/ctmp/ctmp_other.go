@@ -3,7 +3,8 @@
 package ctmp
 
 // The bridge runs on Linux only. Elsewhere (tests on Windows) the files are
-// reached by path, which follows symlinks; only the names are checked.
+// reached by path, which follows symlinks; only the names are checked, a
+// bound Dir's Proc is ignored.
 
 import (
 	"context"

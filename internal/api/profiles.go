@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/attach"
+	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/ctmp"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/hsperf"
 	"github.com/FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin/internal/profile"
 )
@@ -156,7 +157,7 @@ func (s *Server) startProfile(w http.ResponseWriter, r *http.Request, uuid strin
 		default:
 			s.Log.Warn("profile start failed", "uuid", uuid, "err", err)
 			var se *profile.SetupError
-			if errors.As(err, &se) {
+			if errors.As(err, &se) && !errors.Is(err, ctmp.ErrGone) {
 				e = newError(CodeInternal, "", nil)
 			} else {
 				pe := profile.ErrorFor(err)
@@ -276,5 +277,5 @@ func (s *Server) cleanup(ctx context.Context, uuid string) {
 		return
 	}
 	j := *t.java
-	s.Profiles.Cleanup(ctx, attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp}, s.SocketExists(j.AttachSocket()))
+	s.Profiles.Cleanup(ctx, attach.Target{HostPID: j.HostPID, NSPID: j.NSPID, Tmp: j.Tmp, StartTime: j.StartTime}, s.SocketExists(j.AttachSocket()))
 }

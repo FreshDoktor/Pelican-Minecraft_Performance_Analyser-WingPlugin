@@ -45,7 +45,10 @@ func (e *CommandError) Error() string {
 type Target struct {
 	HostPID int      // PID on the host, receives SIGQUIT
 	NSPID   int      // PID inside the container, names the files
-	Tmp     ctmp.Dir // the container's /tmp (/proc/<host-pid>/root + tmp)
+	Tmp     ctmp.Dir // the container's /tmp (/proc/<host-pid>/root + tmp), bound to the process
+	// StartTime of HostPID (container.JavaProcess): SIGQUIT only goes to the
+	// process that started then, never to one that got the PID later.
+	StartTime uint64
 }
 
 // Socket is the attach socket.
@@ -64,7 +67,7 @@ type Client struct {
 	StartTimeout time.Duration
 
 	// Overridable in tests.
-	Signal       func(pid int) error // sends SIGQUIT
+	Signal       func(pid int, startTime uint64) error // sends SIGQUIT
 	Dial         func(ctx context.Context, socket ctmp.File) (net.Conn, error)
 	SocketExists func(socket ctmp.File) bool
 
@@ -142,7 +145,7 @@ func (c *Client) Start(ctx context.Context, t Target) error {
 	default:
 		return fmt.Errorf("attach: create trigger: %w", err)
 	}
-	if err := c.Signal(t.HostPID); err != nil {
+	if err := c.Signal(t.HostPID, t.StartTime); err != nil {
 		return fmt.Errorf("attach: signal: %w", err)
 	}
 	timeout := c.StartTimeout

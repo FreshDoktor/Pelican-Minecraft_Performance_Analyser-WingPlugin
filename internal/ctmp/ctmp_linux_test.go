@@ -312,3 +312,83 @@ func childRoot(ppid int) string {
 	}
 	return ""
 }
+
+// startTime is the start time of pid from the real /proc.
+func startTime(t *testing.T, pid int) uint64 {
+	t.Helper()
+	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := ParseStartTime(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+// TestBound: a Dir bound to a process reaches its root only while the start
+// time matches; a PID that now names another process (here: alive, other
+// start time) is refused before any file operation.
+func TestBound(t *testing.T) {
+	cmd := exec.Command("sleep", "30")
+	if err := cmd.Start(); err != nil {
+		t.Skip("no sleep:", err)
+	}
+	defer func() { cmd.Process.Kill(); cmd.Wait() }()
+	pid := cmd.Process.Pid
+	proc := "/proc/" + strconv.Itoa(pid)
+	st := startTime(t, pid)
+	// The child shares our root, so its /tmp is the host's /tmp.
+	name := "mpa-bound-" + strconv.Itoa(os.Getpid())
+	t.Cleanup(func() { os.Remove(filepath.Join("/tmp", name)) })
+
+	other := ProcTmp(proc, st+1)
+	if f, err := other.Create(name, 0o644); err == nil || !errors.Is(err, ErrGone) {
+		if f != nil {
+			f.Close()
+		}
+		t.Errorf("create with another start time: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join("/tmp", name)); err == nil {
+		t.Error("file created through a process of another start time")
+	}
+	if _, err := other.Names(); !errors.Is(err, ErrGone) {
+		t.Errorf("names: %v", err)
+	}
+	if _, err := other.Sub("x").Open("y"); !errors.Is(err, ErrGone) {
+		t.Errorf("open below: %v", err)
+	}
+
+	same := ProcTmp(proc, st)
+	f, err := same.Create(name, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if err := same.Remove(name); err != nil {
+		t.Error(err)
+	}
+
+	// Ended (and reaped): gone as well.
+	cmd.Process.Kill()
+	cmd.Wait()
+	if _, err := same.Names(); !errors.Is(err, ErrGone) {
+		t.Errorf("after the end: %v", err)
+	}
+}
+
+// TestBoundFakeProc: a fake /proc/<pid> directory (as in the container tests)
+// works the same way.
+func TestBoundFakeProc(t *testing.T) {
+	proc := t.TempDir()
+	os.WriteFile(filepath.Join(proc, "stat"), []byte("26 (java) S 1 26 26 0 -1 4194560 100 0 0 0 1234 567 0 0 20 0 30 0 100 0 0\n"), 0o644)
+	os.MkdirAll(filepath.Join(proc, "root", "tmp"), 0o755)
+	os.WriteFile(filepath.Join(proc, "root", "tmp", "a"), []byte("x"), 0o644)
+	if names, err := ProcTmp(proc, 100).Names(); err != nil || len(names) != 1 {
+		t.Errorf("names %v %v", names, err)
+	}
+	if _, err := ProcTmp(proc, 101).Names(); !errors.Is(err, ErrGone) {
+		t.Errorf("other start time: %v", err)
+	}
+}

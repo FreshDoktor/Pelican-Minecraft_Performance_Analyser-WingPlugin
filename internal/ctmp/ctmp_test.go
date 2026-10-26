@@ -144,3 +144,16 @@ func TestDial(t *testing.T) {
 		t.Error("missing socket dialled")
 	}
 }
+
+func TestParseStartTime(t *testing.T) {
+	// comm may hold spaces and parens; field 22 is counted after the last ')'.
+	stat := "4242 (java) x) (y) S 1 4242 4242 0 -1 4194560 100 0 0 0 1234 567 0 0 20 0 30 0 987654 0 0\n"
+	if st, err := ParseStartTime([]byte(stat)); err != nil || st != 987654 {
+		t.Errorf("start %d %v", st, err)
+	}
+	for _, bad := range []string{"", "4242 java S 1", "4242 (java) S 1 4242 4242"} {
+		if _, err := ParseStartTime([]byte(bad)); err == nil {
+			t.Errorf("%q parsed", bad)
+		}
+	}
+}

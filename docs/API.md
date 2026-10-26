@@ -232,6 +232,13 @@ files) from the host through `/proc/<pid>/root` and follows no symlink in any pa
 `/tmp`, `hsperfdata_<user>` directory or file that is a symlink counts as missing (e.g. a `/tmp`
 symlinked elsewhere gives `hsperf_unavailable`).
 
+The JVM's PID is looked up once per request, and the JVM can end in between and its PID go to another
+process, e.g. one of the host. So the bridge remembers the JVM's start time (field 22 of
+`/proc/<pid>/stat`) and checks it before every step: `SIGQUIT` goes through a pidfd opened before the
+check (`pidfd_open`, `pidfd_send_signal`; on kernels without pidfds the check is followed by `kill`),
+and the container's files through a descriptor of `/proc/<pid>` on which the start time was checked.
+If the start time differs, nothing is signalled or touched and the request answers `no_java_process`.
+
 | Command | Used by | Timeout (incl. listener start) |
 | --- | --- | --- |
 | `Thread.print -l` | `/threads` | 15 s |
@@ -294,7 +301,7 @@ with `details.container_state`, on `/vm`, `/metrics`, `/threads`, `/histogram` a
 | `container.effective_cpus` | number | `min(cpu_limit, cpuset_count, host_cpus)`; what the JVM sees as available processors (rounded up) |
 | `container.tmpfs_size_bytes` | integer | size of the container's `/tmp` (Wings `docker.tmpfs_size`, default 100 MB) |
 | `flags` | map string → string, nullable | `VM.flags` (milestone 2): flag name → value as printed, booleans as `"true"`/`"false"`, e.g. `"MaxHeapSize": "1999634432"`, `"UseSerialGC": "true"` |
-| `flags_error` | error code, nullable | why `flags` is `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` · `output_too_large`; `null` when `flags` is set |
+| `flags_error` | error code, nullable | why `flags` is `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` · `output_too_large` · `no_java_process` (the JVM ended meanwhile); `null` when `flags` is set |
 
 ### `GET /metrics`
 
@@ -359,7 +366,7 @@ generation only when needed (fixture: old gen 99.98 % of the committed 512356352
 | `live_heap.max_bytes` | integer, nullable | only where `GC.heap_info` prints it (G1 reserved, ZGC, Shenandoah) |
 | `live_heap.metaspace` | object, nullable | current metaspace: `used_bytes`, `committed_bytes`, `reserved_bytes` (address space, **not** a limit; the limit is `MaxMetaspaceSize`), `source` (`live`); `null` if neither `GC.heap_info` nor `VM.metaspace` delivered it |
 | `live_heap.raw` | string | the text of `GC.heap_info` |
-| `live_heap_error` | error code, nullable | with `?live=1` and `live_heap` `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` · `output_too_large` · `parse_failed` (unknown `GC.heap_info` format) |
+| `live_heap_error` | error code, nullable | with `?live=1` and `live_heap` `null`: `not_implemented` · `attach_unavailable` · `attach_failed` · `attach_timeout` · `output_too_large` · `no_java_process` (the JVM ended meanwhile) · `parse_failed` (unknown `GC.heap_info` format) |
 
 #### Collector object
 
@@ -716,7 +723,7 @@ Every error has this body (example: [`error-server-not-running.json`](examples/e
 | 405 | `method_not_allowed` | known path, wrong method (`Allow` header set) | – |
 | 404 | `server_not_found` | no container with this name, or not a Pelican server container (labels) | – |
 | 409 | `server_not_running` | container not in state `running` (also `paused`) | `container_state` |
-| 409 | `no_java_process` | container runs, but no `java` process | – |
+| 409 | `no_java_process` | container runs, but no `java` process (or it ended during the request) | – |
 | 409 | `hsperf_unavailable` | Java runs but has no readable hsperfdata (`-XX:-UsePerfData`, `-XX:+PerfDisableSharedMem`, JVM still starting) | – |
 | 409 | `attach_unavailable` | attach not possible, see [Attach](#attach-object) | `reason` |
 | 502 | `attach_failed` | attach protocol error or the command failed | `code` (result code of the JVM, e.g. `-1`) and `output` (first 300 bytes) if the JVM answered, else `null` |
