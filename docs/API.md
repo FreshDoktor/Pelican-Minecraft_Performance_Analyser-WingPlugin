@@ -10,6 +10,7 @@ drift apart. The panel may use them 1:1 as fake responses.
 If the contract changes, this file and the examples change first, then both sides.
 
 - [Conventions](#conventions)
+- [Transport (TLS)](#transport-tls)
 - [Authentication and headers](#authentication-and-headers)
 - [Versioning](#versioning)
 - [Endpoints](#endpoints): [node status](#get-apiv1status), [server status](#get-status), [vm](#get-vm), [metrics](#get-metrics), [threads](#get-threads), [histogram](#get-histogram), [profiles](#profiles), [ticks](#get-ticks)
@@ -18,7 +19,7 @@ If the contract changes, this file and the examples change first, then both side
 
 ## Conventions
 
-- Base URL: `http://<node>:8090` (HTTPS if Wings has `api.ssl.enabled: true`, then with the Wings certificate).
+- Base URL: `https://<node>:8090`, plain `http://` only with `tls.disable: true`, see [Transport (TLS)](#transport-tls).
 - Server endpoints live under `/api/v1/servers/{uuid}/…`. `{uuid}` is the Pelican server UUID
   (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`, hex, case-insensitive). It must name a container with the
   Wings labels `Service=Pelican` and `ContainerType=server_process`; anything else is `server_not_found`.
@@ -40,6 +41,53 @@ If the contract changes, this file and the examples change first, then both side
 
   JVM ticks never appear in JSON; the bridge converts them with `sun.os.hrt.frequency`.
 - Timestamps come from the clock of the node (`sampled_at`), JVM times from hsperfdata.
+
+## Transport (TLS)
+
+The bridge serves HTTPS (TLS 1.2 or newer) unless TLS is switched off explicitly. The `tls` section of
+`mpa-bridge.yml` decides which certificate it serves, the first that applies:
+
+1. `tls.cert` and `tls.key`: an own certificate (PEM, the chain in `cert`).
+2. The certificate of Wings (`api.ssl.cert` and `api.ssl.key` in the Wings config), if Wings has
+   `api.ssl.enabled: true`.
+3. A **self-signed certificate** the bridge creates on its first start: ECDSA P-256, valid for 10
+   years, for the host name and `localhost`. It is kept at `tls.self_signed_cert` and
+   `tls.self_signed_key` (default `/etc/pelican/mpa-bridge.crt`, `0644`, and
+   `/etc/pelican/mpa-bridge.key`, `0600`) and reused on later starts. The bridge creates both files
+   only if neither exists (`O_EXCL`, it neither overwrites a file nor follows a link); if only one of
+   them exists it refuses to start, remove it to get a new pair.
+4. Plain HTTP only with `tls.disable: true`. The token then crosses the network in cleartext; the
+   bridge logs a warning at start unless `host` is a loopback address. Meant for a proxy on the node
+   that terminates TLS.
+
+| Key in `mpa-bridge.yml` | Default | Meaning |
+| --- | --- | --- |
+| `tls.cert`, `tls.key` | none | own certificate and key; only together |
+| `tls.disable` | `false` | plain HTTP; not together with `tls.cert`/`tls.key` |
+| `tls.self_signed_cert`, `tls.self_signed_key` | `/etc/pelican/mpa-bridge.crt`, `/etc/pelican/mpa-bridge.key` | where the self-signed certificate is kept |
+
+`cert` without `key` (or the other way round) and `disable` together with `cert`/`key` are errors,
+the bridge does not start. Changes to the `tls` section need a restart. A certificate file that is
+replaced (certbot renewal, a new self-signed pair) is picked up within 10 seconds; until the new pair
+loads, the previous one stays in use. `tls` in [`GET /api/v1/status`](#get-apiv1status) tells whether
+the bridge serves HTTPS.
+
+The panel checks the certificate by its **public-key pin** (cURL's `CURLOPT_PINNEDPUBLICKEY`),
+entered per node, instead of a CA, so the self-signed certificate is enough and its name does not
+matter. Without a pin it checks the certificate against the CA store of the panel. The pin is
+`sha256//` followed by the base64 SHA-256 of the DER `SubjectPublicKeyInfo` of the leaf certificate,
+e.g. `sha256//+6IzzDvfXgsEHYmcF3t3lfm9IAnYwJmz/ureqK1JWOg=`; it changes only with the key, not with a
+renewal that keeps the key.
+
+```
+mpa-bridge -fingerprint [-config /etc/pelican/mpa-bridge.yml]
+```
+
+prints the pin of the certificate the bridge serves (or would serve; the self-signed one is created if
+it does not exist yet) on stdout and exits with status 0. With `tls.disable` it says so on stderr and
+exits with status 3, on any other error with status 1. `install.sh` prints the pin together with the
+token. The same is computed by
+`openssl x509 -in <cert> -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64`.
 
 ## Authentication and headers
 
@@ -117,7 +165,7 @@ profiles but without the tick monitor report).
 | `started_at` | Unix ms | start of the bridge process |
 | `uptime_ms` | integer | uptime of the bridge |
 | `sampled_at` | Unix ms | clock of the node |
-| `tls` | bool | the bridge serves HTTPS |
+| `tls` | bool | the bridge serves HTTPS (`false` only with `tls.disable`), see [Transport (TLS)](#transport-tls) |
 | `limits.max_concurrent_profiles` | integer | profiles at the same time on this node |
 | `limits.max_profile_seconds` | integer | upper bound of `seconds` in `POST /profiles` |
 | `limits.max_tick_monitors` | integer | tick monitors at the same time on this node (feature `ticks`; older bridges omit it) |
