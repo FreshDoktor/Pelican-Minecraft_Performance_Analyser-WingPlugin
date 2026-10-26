@@ -140,7 +140,7 @@ The panel calls the bridge server-side only. The bridge sends no CORS headers.
   | `vm_flags` | `flags` in `/vm` | 2 | 0.1.0 |
   | `live_heap` | `live_heap` in `/metrics?live=1` | 2 | 0.1.0 |
   | `profiles` | `/profiles…` | 3 | 0.1.0 |
-  | `ticks` | `GET /ticks`, `limits.max_tick_monitors` | 3 | 0.2.0 (counting all the time since 0.3.0, state `idle` since 0.3.1) |
+  | `ticks` | `GET /ticks`, `limits.max_tick_monitors` | 3 | 0.2.0 (counting all the time since 0.3.0, state `idle` since 0.3.1, counting only with a known class loader since 1.1.1) |
 
   Bridge 1.0.0 is the first release and has every feature; the milestone builds only existed during
   development. The panel still handles them, which keeps it working with older or newer bridges that
@@ -687,7 +687,15 @@ window, removed right away and when the monitor ends.
   that keeps up has `tps` only. Counting instruments the class `MinecraftServer` (a short safepoint),
   once per session: when the monitor starts and after a profile.
 - Stays `sampling` when the tick frames aren't of `net/minecraft/server/MinecraftServer` (counting
-  instruments that class); then an `overloaded` window has no TPS.
+  instruments that class), or when the class loader of that class may not find
+  `one.profiler.Instrument` (since 1.1.1); then an `overloaded` window has no TPS. The instrumented
+  method calls that class, which async-profiler defines in the bootstrap loader; a loader that doesn't
+  ask the bootstrap loader (Cleanroom's Foundation) throws `NoClassDefFoundError` in the tick and the
+  server crashes. Once per JVM the bridge asks for the loader (`VM.class_hierarchy
+  net.minecraft.server.MinecraftServer`, `VM.classloaders verbose`, JDK 11+) and counts only with the
+  bootstrap, platform or app loader or a plain `java.net.URLClassLoader` (the bundlers of vanilla and
+  Paper). Other loaders (Cleanroom, Fabric's Knot, Forge's ModLauncher) and JVMs without these
+  commands (Java 8) keep sampling.
 
 | Field | Type | Description |
 | --- | --- | --- |

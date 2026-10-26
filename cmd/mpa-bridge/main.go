@@ -26,7 +26,7 @@ import (
 )
 
 // Version is set at build time with -ldflags "-X main.Version=…".
-var Version = "1.1.0"
+var Version = "1.1.1"
 
 func main() {
 	cfgPath := flag.String("config", config.DefaultBridgePath, "path of mpa-bridge.yml")
