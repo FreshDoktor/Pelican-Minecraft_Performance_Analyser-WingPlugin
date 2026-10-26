@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +113,9 @@ func (c *CertReloader) Pin() (string, error) {
 // unless both exist; created tells whether it did. Existing files are reused
 // as they are. Only one of them is an error: the bridge neither overwrites a
 // file nor follows a link it did not create (O_EXCL), the admin removes it.
-// The key is written 0600, the certificate 0644.
+// The key is written 0600, the certificate 0644. A missing directory is
+// created 0700: -fingerprint may run before the service created its
+// StateDirectory.
 func EnsureSelfSigned(certFile, keyFile string) (created bool, err error) {
 	_, certErr := os.Lstat(certFile)
 	_, keyErr := os.Lstat(keyFile)
@@ -129,6 +132,11 @@ func EnsureSelfSigned(certFile, keyFile string) (created bool, err error) {
 		return false, certErr
 	case !errors.Is(keyErr, os.ErrNotExist):
 		return false, keyErr
+	}
+	for _, f := range []string{keyFile, certFile} {
+		if err := os.MkdirAll(filepath.Dir(f), 0o700); err != nil {
+			return false, err
+		}
 	}
 	certPEM, keyPEM, err := selfSigned(time.Now())
 	if err != nil {

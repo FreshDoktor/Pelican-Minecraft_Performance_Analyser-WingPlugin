@@ -70,8 +70,9 @@ func TestCertReloader(t *testing.T) {
 }
 
 func TestEnsureSelfSigned(t *testing.T) {
-	dir := t.TempDir()
-	cert, key := filepath.Join(dir, "mpa-bridge.crt"), filepath.Join(dir, "mpa-bridge.key")
+	// The directory does not exist yet (-fingerprint before the first start).
+	dir := filepath.Join(t.TempDir(), "mpa-bridge")
+	cert, key := filepath.Join(dir, "tls.crt"), filepath.Join(dir, "tls.key")
 	created, err := EnsureSelfSigned(cert, key)
 	if err != nil || !created {
 		t.Fatalf("first start: %v %v", created, err)
@@ -100,7 +101,7 @@ func TestEnsureSelfSigned(t *testing.T) {
 		}
 	}
 	if runtime.GOOS != "windows" {
-		for p, want := range map[string]os.FileMode{key: 0o600, cert: 0o644} {
+		for p, want := range map[string]os.FileMode{key: 0o600, cert: 0o644, dir: 0o700} {
 			if st, err := os.Stat(p); err != nil || st.Mode().Perm() != want {
 				t.Errorf("%s: %v %v, want %v", p, st.Mode().Perm(), err, want)
 			}

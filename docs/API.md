@@ -52,8 +52,10 @@ The bridge serves HTTPS (TLS 1.2 or newer) unless TLS is switched off explicitly
    `api.ssl.enabled: true`.
 3. A **self-signed certificate** the bridge creates on its first start: ECDSA P-256, valid for 10
    years, for the host name and `localhost`. It is kept at `tls.self_signed_cert` and
-   `tls.self_signed_key` (default `/etc/pelican/mpa-bridge.crt`, `0644`, and
-   `/etc/pelican/mpa-bridge.key`, `0600`) and reused on later starts. The bridge creates both files
+   `tls.self_signed_key` (default `/var/lib/mpa-bridge/tls.crt`, `0644`, and
+   `/var/lib/mpa-bridge/tls.key`, `0600`) and reused on later starts. `/var/lib/mpa-bridge` is the
+   `StateDirectory` of the systemd unit (`0700`), the only place the sandboxed service may write;
+   a directory that does not exist yet is created `0700`. The bridge creates both files
    only if neither exists (`O_EXCL`, it neither overwrites a file nor follows a link); if only one of
    them exists it refuses to start, remove it to get a new pair.
 4. Plain HTTP only with `tls.disable: true`. The token then crosses the network in cleartext; the
@@ -64,12 +66,13 @@ The bridge serves HTTPS (TLS 1.2 or newer) unless TLS is switched off explicitly
 | --- | --- | --- |
 | `tls.cert`, `tls.key` | none | own certificate and key; only together |
 | `tls.disable` | `false` | plain HTTP; not together with `tls.cert`/`tls.key` |
-| `tls.self_signed_cert`, `tls.self_signed_key` | `/etc/pelican/mpa-bridge.crt`, `/etc/pelican/mpa-bridge.key` | where the self-signed certificate is kept |
+| `tls.self_signed_cert`, `tls.self_signed_key` | `/var/lib/mpa-bridge/tls.crt`, `/var/lib/mpa-bridge/tls.key` | where the self-signed certificate is kept; elsewhere the service can only create it with a `ReadWritePaths=` for that directory (drop-in) |
 
 `cert` without `key` (or the other way round) and `disable` together with `cert`/`key` are errors,
-the bridge does not start. Changes to the `tls` section need a restart. A certificate file that is
-replaced (certbot renewal, a new self-signed pair) is picked up within 10 seconds; until the new pair
-loads, the previous one stays in use. `tls` in [`GET /api/v1/status`](#get-apiv1status) tells whether
+the bridge does not start. The unit hides `/home`, `/root` and `/run/user` from the bridge
+(`ProtectHome=yes`), so an own certificate must not be kept there. Changes to the `tls` section need
+a restart. A certificate file that is replaced (certbot renewal, a new self-signed pair) is picked up
+within 10 seconds; until the new pair loads, the previous one stays in use. `tls` in [`GET /api/v1/status`](#get-apiv1status) tells whether
 the bridge serves HTTPS.
 
 The panel checks the certificate by its **public-key pin** (cURL's `CURLOPT_PINNEDPUBLICKEY`),

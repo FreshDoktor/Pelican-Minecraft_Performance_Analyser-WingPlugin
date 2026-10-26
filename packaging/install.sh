@@ -15,9 +15,10 @@ REPO="FreshDoktor/Pelican-Minecraft_Performance_Analyser-WingPlugin"
 ASSET="mpa-bridge-linux-amd64"
 BIN_PATH="/usr/local/bin/mpa-bridge"
 CONFIG_PATH="/etc/pelican/mpa-bridge.yml"
-# The self-signed certificate the bridge creates (tls.self_signed_cert/key in the config).
-CERT_PATH="/etc/pelican/mpa-bridge.crt"
-KEY_PATH="/etc/pelican/mpa-bridge.key"
+# StateDirectory of the unit, with the self-signed certificate the bridge creates
+# (tls.self_signed_cert/key in the config).
+STATE_DIR="/var/lib/mpa-bridge"
+CERT_PATH="$STATE_DIR/tls.crt"
 WINGS_CONFIG="/etc/pelican/config.yml"
 UNIT_PATH="/etc/systemd/system/mpa-bridge.service"
 
@@ -97,7 +98,8 @@ if [ "$uninstall" -eq 1 ]; then
 	rm -f "$UNIT_PATH" "$BIN_PATH"
 	systemctl daemon-reload
 	if [ "$purge" -eq 1 ]; then
-		rm -f "$CONFIG_PATH" "$CERT_PATH" "$KEY_PATH"
+		rm -f "$CONFIG_PATH"
+		rm -rf "$STATE_DIR"
 	elif [ -f "$CONFIG_PATH" ]; then
 		echo "Kept $CONFIG_PATH and the bridge's certificate (remove them with --purge)."
 	fi
@@ -230,12 +232,55 @@ StartLimitBurst=30
 
 [Service]
 # Root: the bridge reads /proc/<pid>/root of the server containers, signals
-# their JVMs and talks to the Docker socket, like Wings.
+# their JVMs and talks to the Docker socket, like Wings. The JVM's attach
+# socket only accepts uid 0 or the JVM's own uid.
 User=root
 WorkingDirectory=/etc/pelican
 ExecStart=/usr/local/bin/mpa-bridge
 Restart=on-failure
 RestartSec=5s
+
+# Only the capabilities the bridge needs: SIGQUIT to the JVMs (KILL);
+# /proc/<pid>/root, maps and task of other users (SYS_PTRACE); the container
+# user's 0600 hsperfdata files and attach socket (DAC_OVERRIDE, it covers
+# reading too); removing that user's mpa-* files from a sticky /tmp that the
+# host's root does not own, e.g. with userns-remap (FOWNER); a port below
+# 1024 if configured (NET_BIND_SERVICE).
+CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_DAC_OVERRIDE CAP_FOWNER CAP_NET_BIND_SERVICE
+AmbientCapabilities=
+NoNewPrivileges=yes
+# /etc and everything else read-only; the self-signed certificate goes to
+# /var/lib/mpa-bridge.
+ProtectSystem=strict
+StateDirectory=mpa-bridge
+StateDirectoryMode=0700
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+# No ProtectProc=, ProcSubset= or PrivateUsers=: the bridge must see the
+# /proc/<pid> of the containers' processes and act as the host's root there.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
+# Profile results are held in memory. An OOM kill stays within the bridge;
+# GOMEMLIMIT makes the Go GC work harder before it.
+MemoryMax=1G
+Environment=GOMEMLIMIT=768MiB
+TasksMax=512
 
 [Install]
 WantedBy=multi-user.target

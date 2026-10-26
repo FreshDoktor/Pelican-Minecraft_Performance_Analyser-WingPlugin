@@ -19,9 +19,10 @@ import (
 const (
 	DefaultBridgePath = "/etc/pelican/mpa-bridge.yml"
 	DefaultWingsPath  = "/etc/pelican/config.yml"
-	// The self-signed certificate the bridge creates on its first start.
-	DefaultSelfSignedCert = "/etc/pelican/mpa-bridge.crt"
-	DefaultSelfSignedKey  = "/etc/pelican/mpa-bridge.key"
+	// The self-signed certificate the bridge creates on its first start, in
+	// the StateDirectory of the unit (/etc is read-only to the service).
+	DefaultSelfSignedCert = "/var/lib/mpa-bridge/tls.crt"
+	DefaultSelfSignedKey  = "/var/lib/mpa-bridge/tls.key"
 )
 
 // Sources of the certificate the bridge serves, see CertFiles.
@@ -60,7 +61,7 @@ type TLS struct {
 	// terminates TLS. The token then crosses the network in cleartext.
 	Disable bool `yaml:"disable"`
 	// SelfSignedCert and SelfSignedKey are where the self-signed certificate
-	// is kept (default /etc/pelican/mpa-bridge.crt and .key).
+	// is kept (default /var/lib/mpa-bridge/tls.crt and tls.key).
 	SelfSignedCert string `yaml:"self_signed_cert"`
 	SelfSignedKey  string `yaml:"self_signed_key"`
 }
